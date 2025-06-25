@@ -24,13 +24,6 @@
 
 ---
 
-## 💖 Pensado con amor (y rosa 🌷)
-
-Este proyecto busca hacerte la vida más fácil, linda y organizada. Porque el control no tiene por qué ser aburrido.  
-Y como dice el lema: **el rosa, porque la vida es hermosa.**
-
----
-
 ## ⚙️ Tecnologías sugeridas 
 
 - Frontend: HTML, CSS, JavaScript

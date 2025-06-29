@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>agregar Producto</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <aside class="sidebar">
+        <h2>Natura Graciela</h2>
+        <nav>
+            <ul>
+                <li><a href="index.html">Inicio</a></li>
+                <li><a href="productos.html">Productos</a></li>
+                <li><a href="clientes.html">Clientes</a></li>
+                <li><a href="ventas.html">Ventas</a></li>
+                <li><a href="alertas.html">Alertas</a></li>
+                <li><a href="agregarCliente.html">Agregar Cliente</a></li>
+                <li><a href="agregarProducto.html">Agregar Producto</a></li>
+                <li><a href="registrarVentas.html">Registrar Venta</a></li>
+            </ul>
+        </nav>
+    </aside>
+    <main>
+        <h1>Agregar Producto</h1>
+        <form>
+            <label for="nombreProducto">Nombre del Producto:</label>
+            <input type="text" id="nombreProducto" name="nombreProducto" required>
+
+            <label for="detalleProducto">Detalle del Producto:</label>
+            <input type="text" id="detalleProducto" name="detalleProducto" required>
+
+            <label for="precioProducto">Precio:</label>
+            <input type="number" id="precioProducto" name="precioProducto" required>
+
+            <label for="vencimientoProducto">Fecha de Vencimiento:</label>
+            <input type="date" id="vencimientoProducto" name="vencimientoProducto">
+
+            <label for="cantidadProducto">Cantidad:</label>
+            <input type="number" id="cantidadProducto" name="cantidadProducto" required>
+
+            <button type="submit">Agregar Producto</button>
+            <button type="reset">Cancelar</button>
+        </form> 
+    </main>
+    <footer>
+        <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p> 
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Clientes</title>
+</head>
+<body>
+    <aside class="sidebar">
+        <h2>Natura Graciela</h2>
+        <nav>
+            <ul>
+                <li><a href="index.html">Inicio</a></li>
+                <li><a href="productos.html">Productos</a></li>
+                <li><a href="clientes.html">Clientes</a></li>
+                <li><a href="ventas.html">Ventas</a></li>
+                <li><a href="alertas.html">Alertas</a></li>
+                <li><a href="agregarCliente.html">Agregar Cliente</a></li>
+                <li><a href="agregarProducto.html">Agregar Producto</a></li>
+                <li><a href="registrarVentas.html">Agregar Venta</a></li>
+            </ul>
+        </nav>
+    </aside>
+    <main>
+        <h1>Clientes</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th>Teléfono</th>
+                <th>Medio de Pago</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Juan</td>
+                <td>Pérez</td>
+                <td>1234567890</td>
+                <td>Tarjeta de Crédito</td>
+                <td>
+                    <button type="button" onclick="location.href='verEditarClientes.html'">Editar</button>
+                    <button>Eliminar</button>
+                </td>
+                    </tr>
+    </table>
+    <button type="button" onclick="location.href='agregarCliente.html'">Agregar Cliente</button>
+
+    </main>
+    <footer>    
+        <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
+    </footer>
+</body>
+</html>

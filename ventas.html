@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
     <title>Ventas</title>
 </head>
 <body>
-    
+     <div class="container">
     <aside class="sidebar">
         <h2>Natura Graciela</h2>
         <nav>
@@ -23,9 +23,13 @@
             </ul>
         </nav>
     </aside>
-    <main>
+    <main class="main-content">
+        <div class="titulo-formulario">
+            <h1>Ventas</h1>
+        </div>
+
         <h1>Listado de Ventas</h1>
-   
+    <section class="product-list">
     <table>
         <thead>
             <tr>
@@ -52,8 +56,13 @@
           
         </tbody>
         </table>
-        <button type="button" onclick="location.href='registrarVentas.html'">Registrar Nueva Venta</button>
+        <div class="botones">
+        <button type="button" class="boton-agregar" onclick="location.href='registrarVentas.html'">Registrar Nueva Venta</button>
+        </div>
+    </section>
+
     </main>
+    </div>
     <footer>
         <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
     </footer>

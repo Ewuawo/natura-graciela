@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", function () {
             e.preventDefault();
             return;
         }
-        if (!/^\d{15}$/.test(telefono)) {
+        if (!/^\d{6,15}$/.test(telefono)) {
             alert("El número de teléfono debe tener 15 dígitos.");
             e.preventDefault();
             return;

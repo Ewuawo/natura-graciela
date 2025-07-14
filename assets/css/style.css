@@ -243,3 +243,9 @@ width: 100%;
   display: flex;
   justify-content: center;
 }
+
+.buscador {
+  margin-bottom: 20px;
+  padding: 8px;
+  width: 50%;
+}

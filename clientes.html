@@ -34,21 +34,24 @@
                 <th>Nombre</th>
                 <th>Apellido</th>
                 <th>Teléfono</th>
-                <th>Medio de Pago</th>
+                <th>Direccion</th>
                 <th>Acciones</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="tabla-clientes">
             <tr>
-                <td>Juan</td>
-                <td>Pérez</td>
-                <td>1234567890</td>
-                <td>Tarjeta de Crédito</td>
+                <td data-value="cliente1">Cliente 1</td>
+                <td data-value="apellido1">Apellido 1</td>
+                <td data-value="123456789">123456789</td>
+                <td data-value="San Martin 1125">San Martin 1125</td>
                 <td>
-                    <button type="button" onclick="location.href='verEditarClientes.html'">Editar</button>
-                    <button>Eliminar</button>
+                    <button  onclick="location.href='verEditarClientes.html'">Editar</button>
+                    <button class="eliminar-cliente">Eliminar</button>
                 </td>
-                    </tr>
+            </tr>
+            <!-- Más clientes pueden ser añadidos aquí -->
+          
+        </tbody>
     </table>
     <div class="botones">
     <button type="button" class="boton-agregar" onclick="location.href='agregarCliente.html'">Agregar Cliente</button>
@@ -60,5 +63,7 @@
     <footer>    
         <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
     </footer>
+        <script src="assets/js/scripts.js"></script>
+
 </body>
 </html>

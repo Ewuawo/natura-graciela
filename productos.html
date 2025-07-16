@@ -32,6 +32,7 @@
     <table>
         <thead>
             <tr>
+                <th>ID</th>
                 <th>Nombre</th>
                 <th>Detalle</th>
                 <th>Precio</th>
@@ -40,18 +41,10 @@
                 <th>Acciones</th>
             </tr>
         </thead>
-        <tbody>
-            <tr>
-                <td>Crema facial</td>
-                <td>Con acido hialuronico</td>
-                <td>$15000</td>
-                <td>20/09/2025</td>
-                <td>10</td>
-                <td>
-                    <button onclick="location.href='editarProductos.html'">Editar</button>
-                    <button type="button" class="boton-eliminar">Eliminar</button>
-                </td>
-              </tr>
+        <tbody id="tabla-productos">
+            <!-- Aquí se agregarán los productos dinámicamente -->
+       
+        </tbody>
     </table>
     <div class="botones">
     <button type="button" class="boton-agregar" onclick="location.href='agregarProducto.html'">Agregar Producto</button>
@@ -62,5 +55,7 @@
     <footer>
         <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
     </footer>
+    
+      <script src="assets/js/scripts-producto.js"></script>
 </body>
 </html>

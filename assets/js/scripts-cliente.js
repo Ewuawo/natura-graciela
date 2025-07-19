@@ -96,10 +96,38 @@ if (document.querySelectorAll(".boton-eliminar").length > 0) {
  }
 
 
+if (document.getElementById("eCliente")) {
+    document.getElementById("eCliente").addEventListener("submit", function(event) {
+        event.preventDefault();
 
+        const nombre = document.getElementById("nombre").value.trim();
+        const apellido = document.getElementById("apellido").value.trim();
+        const telefono = document.getElementById("telefono").value.trim();
+        const direccion = document.getElementById("direccion").value.trim();
 
+        if (!nombre || !apellido || !telefono || !direccion) {
+            alert("Por favor, complete todos los campos correctamente.");
+            return;
+        }
 
+        const indiceEditar = localStorage.getItem("indiceEditar");
+        let listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
+        
+        listaClientes[indiceEditar] = { nombre, apellido, telefono, direccion };
+        localStorage.setItem("listaClientes", JSON.stringify(listaClientes));
 
+        alert("Cliente editado exitosamente.");
+        location.href = "clientes.html"; // Redirige a la página de clientes
+    });
+
+}
+
+if (document.getElementById("eCliente")) {
+    document.getElementById("eCliente").addEventListener("reset", function(event) {
+        event.preventDefault();
+        location.href = "clientes.html"; // Redirige a la página de clientes
+    });
+}
 
 
 

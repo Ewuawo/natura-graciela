@@ -249,3 +249,30 @@ width: 100%;
   padding: 8px;
   width: 50%;
 }
+
+#lista-productos-vencer {
+ margin-top: 15px;
+ padding-left: 20px;
+ list-style-type: none;
+}
+
+#lista-productos-vencer li {
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: #4a004d;
+  font-weight: 500;
+  background-color: #ffe6f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 2 px 4px rgba(0, 0, 0, 0.1);
+}
+
+#cuotas-proximas{
+background-color: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  flex: 1 1 300px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin: 20px;
+  font-weight: bold;
+}

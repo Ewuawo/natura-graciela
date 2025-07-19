@@ -1,70 +1,95 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Registrar Ventas</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="assets/css/style.css" />
+  </head>
+  <body>
     <div class="container">
-    <aside class="sidebar">
+      <aside class="sidebar">
         <h2>Natura Graciela</h2>
         <nav>
-            <ul>
-                <li><a href="index.html">Inicio</a></li>
-                <li><a href="productos.html">Productos</a></li>
-                <li><a href="clientes.html">Clientes</a></li>
-                <li><a href="ventas.html">Ventas</a></li>
-                <li><a href="alertas.html">Alertas</a></li>
-                <li><a href="agregarCliente.html">Agregar Cliente</a></li>
-                <li><a href="agregarProducto.html">Agregar Producto</a></li>
-                <li><a href="registrarVentas.html">Registrar Venta</a></li>
-            </ul>
+          <ul>
+            <li><a href="index.html">Inicio</a></li>
+            <li><a href="productos.html">Productos</a></li>
+            <li><a href="clientes.html">Clientes</a></li>
+            <li><a href="ventas.html">Ventas</a></li>
+            <li><a href="alertas.html">Alertas</a></li>
+            <li><a href="agregarCliente.html">Agregar Cliente</a></li>
+            <li><a href="agregarProducto.html">Agregar Producto</a></li>
+            <li><a href="registrarVentas.html">Registrar Venta</a></li>
+          </ul>
         </nav>
-    </aside>
-    <main class="main-content">
-         <div class="titulo-formulario">
-        <h1>Registrar Venta</h1>
+      </aside>
+      <main class="main-content">
+        <div class="titulo-formulario">
+          <h1>Registrar Venta</h1>
         </div>
         <div class="card formulario-cliente">
-    <form id="registrarVenta">
-       <label for="cliente">Cliente:</label>
-       <select id="cliente" name="cliente" required>
-            <option value="cliente1">Cliente 1</option>
-            <option value="cliente2">Cliente 2</option>
-            <option value="cliente3">Cliente 3</option>
-            </select>
-        <label for="producto">Producto:</label>
-        <select id="producto" name="producto" required>
-            <option value="producto1">Producto 1</option>
-            <option value="producto2">Producto 2</option>
-            <option value="producto3">Producto 3</option>
-            </select>
-            
-           
-            
-        <label for="fecha">Fecha de Venta:</label>
-        <input type="date" id="fecha" name="fecha" required>    
-        <label for="medioPago">Medio de Pago:</label>
-        <select id="medioPago" name="medioPago" required>
-            <option value="tarjetaCredito">Tarjeta de Crédito</option>
-            <option value="efectivo">Efectivo</option>
-            <option value="transferencia">Transferencia</option> 
-        </select>
+          <form id="registrarVenta">
+            <label for="cliente">Cliente:</label>
+            <select id="cliente" name="cliente" required></select>
 
-        <label for="cantidad">Cantidad:</label>
-        <input type="number" id="cantidad" name="cantidad" required step="1" min="1">
- <div class="botones">
-        <button type="submit" class="boton-agregar">Registrar Venta</button>
+            <label for="producto">Producto:</label>
+            <select id="producto" name="producto" required></select>
+
+            <label for="fecha">Fecha de Venta:</label>
+            <input type="date" id="fecha" name="fecha" required />
+            
+            
+            
+            
+            
+            <label for="cantidad">Cantidad:</label>
+            <input
+            type="number"
+            id="cantidad"
+            name="cantidad"
+            required
+            step="1"
+            min="1"
+            />
+            <label for="precio">Precio Unitario:</label>
+            <input
+            type="number"
+            id="precio"
+            name="precio"
+            required
+            step="0.01"
+            min="0"
+            />
+            
+            <label for="medioPago">Medio de Pago:</label>
+            <select id="medioPago" name="medioPago" required>
+              <option value="efectivo">Efectivo</option>
+              <option value="credito">Credito</option>
+            </select>
+            
+
+            <div id="seccion-cuotas" style="display: none">
+              <label for="entregaInicial">Entrega Inicial</label>
+              <input type="number" id="entregaInicial" min="0" value="0">
+              <label for="cuotas">Cantidad de Cuotas:</label>
+              <input type="number" id="cuotas" name="cuotas" min="1" max="5" />
+    
+              <div id="fechas-cuotas"></div>
+              <div id="info-cuotas"></div>
+            </div>
+
+            <div class="botones">
+              <button type="submit" class="boton-agregar">
+                Registrar Venta
+              </button>
+            </div>
+          </form>
         </div>
-        </form>
-        </div>
-    </main>
+      </main>
     </div>
     <footer>
-        <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
+      <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
     </footer>
-    <script src="assets/js/scripts.js"></script>
-</body>
+    <script src="assets/js/scripts-ventas.js"></script>
+  </body>
 </html>

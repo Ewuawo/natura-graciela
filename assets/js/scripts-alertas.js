@@ -23,7 +23,7 @@ productosVencer.forEach(producto => {
     fila.innerHTML = `
     <td>${producto.nombre}</td>
     <td>${producto.detalle}</td>
-    <td>${producto.precio.toFixed(2)}</td>
+    <td>${producto.pVenta.toFixed(2)}</td>
     <td>${formatearFecha(producto.vencimiento)}</td>
     <td>${producto.cantidad}</td>
     `;

@@ -1,68 +1,13 @@
 document.addEventListener("DOMContentLoaded", function () {
  
-  //Agregar productos
-  if (document.getElementById("formProducto")) {
-    document
-      .getElementById("formProducto")
-      .addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        const nombre = document.getElementById("nombreProducto").value.trim();
-        const detalle = document.getElementById("detalleProducto").value.trim();
-        const precio = parseFloat(
-          document.getElementById("precioProducto").value.trim()
-        );
-        const vencimiento = document
-          .getElementById("vencimientoProducto")
-          .value.trim();
-        const cantidad = parseInt(
-          document.getElementById("cantidadProducto").value.trim()
-        );
-
-        if (
-          !nombre ||
-          !detalle ||
-          isNaN(precio) ||
-          !vencimiento ||
-          isNaN(cantidad)
-        ) {
-          alert("Por favor, complete todos los campos correctamente.");
-          return;
-        }
-
-        const nuevoProducto = {
-          nombre,
-          detalle,
-          precio,
-          vencimiento,
-          cantidad,
-        };
-
-        let listaProductos =
-          JSON.parse(localStorage.getItem("listaProductos")) || [];
-        listaProductos.push(nuevoProducto);
-        localStorage.setItem("listaProductos", JSON.stringify(listaProductos));
-
-        alert("Producto agregado exitosamente.");
-        this.reset(); // Resetea el formulario
-        document.getElementById("formProducto").reset();
-      });
-  }
+ 
   //cambiar formato fecha
   function formatearFecha(fecha) {
     const partes = fecha.split("-");
     return `${partes[2]}-${partes[1]}-${partes[0]}`;
   }
 
-  //Cancelar agregar producto q redirige a productos.html
-  if (document.getElementById("formProducto")) {
-    document
-      .getElementById("formProducto")
-      .addEventListener("reset", function (event) {
-        event.preventDefault();
-        location.href = "index.html"; 
-      });
-  }
+ 
 
   //Tabla de productos
   if (document.getElementById("tabla-productos")) {
@@ -76,11 +21,8 @@ document.addEventListener("DOMContentLoaded", function () {
             <td>${index + 1}</td>
             <td>${producto.nombre}</td>
             <td>${producto.detalle}</td>
-            <td>${
-              isNaN(Number(producto.precio))
-                ? "0.00"
-                : Number(producto.precio).toFixed(2)
-            }</td>
+            <td>${isNaN(Number(producto.pCosto))  ? "0.00" : Number(producto.pCosto).toFixed(2) }</td>
+            <td>${isNaN(Number(producto.pVenta)) ? "0.00" : Number(producto.pVenta).toFixed(2)}</td>
             <td>${formatearFecha(producto.vencimiento)}</td>
             <td>${producto.cantidad}</td>
             <td>
@@ -131,7 +73,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (producto) {
       document.getElementById("nombre").value = producto.nombre;
       document.getElementById("detalle").value = producto.detalle;
-      document.getElementById("precio").value = producto.precio;
+      document.getElementById("pCosto").value = producto.pCosto;
+      document.getElementById("pVenta").value = producto.pVenta;
       document.getElementById("vencimiento").value = producto.vencimiento;
       document.getElementById("cantidad").value = producto.cantidad;
     }
@@ -145,9 +88,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const nombre = document.getElementById("nombre").value.trim();
         const detalle = document.getElementById("detalle").value.trim();
-        const precio = parseFloat(
-          document.getElementById("precio").value.trim()
+        const pCosto = parseFloat(
+          document.getElementById("pCosto").value.trim()
         );
+        const pVenta = parseFloat(document.getElementById("pVenta").value.trim());
         const vencimiento = document.getElementById("vencimiento").value.trim();
         const cantidad = parseInt(
           document.getElementById("cantidad").value.trim()
@@ -156,7 +100,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (
           !nombre ||
           !detalle ||
-          isNaN(precio) ||
+          isNaN(pCosto) ||
+          isNaN(pVenta) ||
           !vencimiento ||
           isNaN(cantidad)
         ) {
@@ -171,7 +116,8 @@ document.addEventListener("DOMContentLoaded", function () {
         listaProductos[indiceEditar] = {
           nombre,
           detalle,
-          precio,
+          pCosto,
+          pVenta,
           vencimiento,
           cantidad,
         };

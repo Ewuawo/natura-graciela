@@ -37,21 +37,25 @@ document.addEventListener("DOMContentLoaded", function () {
     const sieteDias = new Date();
     sieteDias.setDate(hoy.getDate() + 7);
     let cuotasProximas = 0;
+    let detalleCuotas= "<ul>";
 
     ventas.forEach(venta => {
         if (venta.cuotas) {
-            venta.cuotas.forEach(cuota => {
+            venta.cuotas.forEach((cuota, i) => {
                 const fechaCuota = new Date(cuota.fechaVencimiento);
                 if (fechaCuota >= hoy && fechaCuota <= sieteDias) {
                     cuotasProximas++;
+                    detalleCuotas += `<li>✅ ${venta.cliente} - cuota ${i + 1} - $${cuota.monto.toFixed(2)} - vence ${formatearFecha(cuota.fechaVencimiento)}</li>`;
                 }
             });
         }
     });
 
+    detalleCuotas += "</ul>";
+
     const contenedorCuotas = document.getElementById("cuotas-proximas");
     if (cuotasProximas > 0) {
-        contenedorCuotas.textContent = `📅 Esta semana vencen ${cuotasProximas} cuotas`;
+        contenedorCuotas.innerHTML = `<p>📅 Esta semana vencen ${cuotasProximas} cuotas:</p>${detalleCuotas}`;
     }else {
         contenedorCuotas.textContent = "✅ No hay cuotas próximas esta semana";
     }

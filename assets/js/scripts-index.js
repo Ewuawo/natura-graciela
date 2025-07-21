@@ -1,71 +1,77 @@
-document.addEventListener("DOMContentLoaded", function () {
-  //Index
-  // formatear fecha
-  function formatearFecha(fecha) {
-      const partes = fecha.split("-");
-      return `${partes[2]}-${partes[1]}-${partes[0]}`;
-    }
-    
-    //Ver que productos vencen en menos de 30 días
+document.addEventListener("DOMContentLoaded", function(){
 
-  if (document.getElementById("productos-vencer")) {
-    const productos = JSON.parse(localStorage.getItem("listaProductos")) || [];
-    const hoy = new Date();
-    const productosVencer = productos.filter((producto) => {
-      const fechaVencimiento = new Date(producto.vencimiento);
-      const diferenciaDias = (fechaVencimiento - hoy) / (1000 * 60 * 60 * 24);
-      return diferenciaDias <= 30 && diferenciaDias >= 0;
-    });
-    document.getElementById("productos-vencer").textContent =
-      productosVencer.length;
-  
-  
-  if (document.getElementById("lista-productos-vencer")) {
-    const lista = document.getElementById("lista-productos-vencer");
-    lista.innerHTML = ""; 
-    productosVencer.forEach((producto) => {
-      const li = document.createElement("li");
-      li.textContent = `${producto.nombre} - Vence el ${formatearFecha(producto.vencimiento)}`;
-      lista.appendChild(li);
-    });
+//Formatear la fecha dd-mm-aaaa
+function formatearFecha(fecha) {
+    const partes = fecha.split("-");
+    return `${partes[2]}-${partes[1]}-${partes[0]}`;
 }
-  }
 
-  if (document.getElementById("cuotas-proximas")) {
-    const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-    const hoy = new Date();
-    const sieteDias = new Date();
-    sieteDias.setDate(hoy.getDate() + 7);
-    let cuotasProximas = 0;
-    let detalleCuotas= "<ul>";
+//Buscar productos a vencer
+const productos = JSON.parse(localStorage.getItem("listaProductos")) || [];
+const hoy = new Date();
 
-    ventas.forEach(venta => {
-        if (venta.cuotas) {
-            venta.cuotas.forEach((cuota, i) => {
-                const fechaCuota = new Date(cuota.fechaVencimiento);
-                if (fechaCuota >= hoy && fechaCuota <= sieteDias) {
-                    cuotasProximas++;
-                    detalleCuotas += `<li>✅ ${venta.cliente} - cuota ${i + 1} - $${cuota.monto.toFixed(2)} - vence ${formatearFecha(cuota.fechaVencimiento)}</li>`;
-                }
-            });
-        }
-    });
+const productosVencer = productos.filter(producto => {
+    const vencimiento = new Date(producto.vencimiento);
+    const diferenciaDias = (vencimiento - hoy) / (1000 * 60 * 60 * 24);
+    return diferenciaDias >= 0 && diferenciaDias <=30;
+});
 
-    detalleCuotas += "</ul>";
+//listar en la tabla
+const pVencer = document.getElementById("pVencer");
+productosVencer.forEach(producto => {
+    const fila = document.createElement("tr");
+    fila.innerHTML = `
+    <td>${producto.nombre}</td>
+    <td>${producto.detalle}</td>
+    <td>${producto.pVenta.toFixed(2)}</td>
+    <td>${formatearFecha(producto.vencimiento)}</td>
+    <td>${producto.cantidad}</td>
+    `;
 
-    const contenedorCuotas = document.getElementById("cuotas-proximas");
-    if (cuotasProximas > 0) {
-        contenedorCuotas.innerHTML = `<p>📅 Esta semana vencen ${cuotasProximas} cuotas:</p>${detalleCuotas}`;
-    }else {
-        contenedorCuotas.textContent = "✅ No hay cuotas próximas esta semana";
+    pVencer.appendChild(fila);
+
+})
+
+//Buscar cuotas a vencer
+const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
+const oy = new Date();
+const sieteDias = new Date();
+sieteDias.setDate(oy.getDate() + 7);
+
+const cuotasVencer = [];
+
+ventas.forEach(venta => {
+    if (venta.cuotas) {
+        venta.cuotas.forEach(cuota => {
+            const fVencimiento = new Date(cuota.fechaVencimiento);
+            if (fVencimiento >= oy && fVencimiento <= sieteDias) {
+                cuotasVencer.push({
+                    cliente: venta.cliente,
+                    cuota: cuota.monto.toFixed(2),
+                    fecha: formatearFecha(cuota.fechaVencimiento),
+                    total: venta.total.toFixed(2)
+                });
+            }
+        });
     }
-    }
-
-  
+});
 
 
+//Listar tabla cuotas a vencer
+const cVencer = document.getElementById("cVencer");
+let contadorCuota = 1;
 
-
+cuotasVencer.forEach(cuota => {
+    const fila = document.createElement("tr");
+    fila.innerHTML= `
+    <td>${cuota.cliente}</td>
+    <td>Cuota ${contadorCuota++}</td>
+    <td>${cuota.fecha}</td>
+    <td>$${cuota.cuota}</td>
+    
+    `;
+    cVencer.appendChild(fila);
+})
 
 });
 

@@ -118,7 +118,7 @@ if (formulario) {
                 productos.splice(index, 1);
             }
             localStorage.setItem("listaProductos", JSON.stringify(productos));
-            const ventas = JSON.parse(localStorage.getItem("ventas") || []);
+            const ventas = JSON.parse(localStorage.getItem("ventas") || "[]");
 
             let cuotasDetalle = [];
             if (document.getElementById("medioPago").value === "credito") {

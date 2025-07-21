@@ -17,10 +17,14 @@ document.addEventListener("DOMContentLoaded", function() {
     //Listar Ventas
     if (document.getElementById("ventas-tabla")) {
         const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-        const tabla = document.getElementById("ventas-tabla");
+        
 
-        ventas.forEach((venta, index) => {
-            const fila = tabla.insertRow();
+        function mostrarVentas(lista) {
+            const tabla = document.getElementById("ventas-tabla");
+            tabla.innerHTML = "";
+
+            lista.forEach((venta, index) => {
+                const fila = tabla.insertRow();
             fila.insertCell(0).textContent = index + 1;
             fila.insertCell(1).textContent = venta.cliente;
             fila.insertCell(2).textContent = venta.producto;
@@ -29,19 +33,23 @@ document.addEventListener("DOMContentLoaded", function() {
             fila.insertCell(5).textContent = venta.cantidad;
             fila.insertCell(6).textContent = venta.precio.toFixed(2);
             fila.insertCell(7).textContent = venta.total.toFixed(2);
+
             const acciones = fila.insertCell(8);
+
             const btnEditar = document.createElement("button");
             btnEditar.textContent = "Editar";
             btnEditar.className = "btn btn-primary btn-sm";
             btnEditar.addEventListener("click", function() {
                 window.editarVenta(index);
             });
+        
             acciones.appendChild(btnEditar);
             const btnEliminar = document.createElement("button");
             btnEliminar.textContent = "Eliminar";   
             btnEliminar.className = "boton-eliminar";
             btnEliminar.addEventListener("click", function() {
                 if (confirm("¿Estás seguro de que deseas eliminar esta venta?")) {
+                    let ventas = JSON.parse(localStorage.getItem("ventas")) || [];
                     ventas.splice(index, 1);
                     localStorage.setItem("ventas", JSON.stringify(ventas));
                     location.reload(); // Recargar la página para actualizar la tabla
@@ -51,8 +59,16 @@ document.addEventListener("DOMContentLoaded", function() {
             
 
         });
-
     }
+
+    mostrarVentas(ventas);
+
+    document.getElementById("buscar").addEventListener("input", function(){
+        const filtro = this.value.toLowerCase();
+        const ventasFiltradas = ventas.filter(venta => venta.cliente.toLowerCase().includes(filtro));
+        mostrarVentas(ventasFiltradas);
+    });
+}
 
   
 
@@ -120,56 +136,3 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
 });
-
-//Buscar cliente 
-if (document.getElementById("buscar")) {
-    document.getElementById("buscar").addEventListener("input", function () {
-        const filtro = this.value.toLowerCase();
-        const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-        const tabla = document.getElementById("ventas-tabla");
-          
-        tabla.innerHTML = ""; // Limpiar tabla antes de mostrar resultados
-
-        ventas.forEach((venta, index) => {
-            if (venta.cliente.toLowerCase().includes(filtro)) {
-            const fila = tabla.insertRow();
-            fila.insertCell(0).textContent = index + 1;
-            fila.insertCell(1).textContent = venta.cliente;
-            fila.insertCell(2).textContent = venta.producto;
-            fila.insertCell(3).textContent = venta.fecha;
-            fila.insertCell(4).textContent = venta.medioPago;
-            fila.insertCell(5).textContent = venta.cantidad;
-            fila.insertCell(6).textContent = venta.precio.toFixed(2);   
-            fila.insertCell(7).textContent = venta.total.toFixed(2);
-            const acciones = fila.insertCell(8);
-
-            const btnEditar = document.createElement("button");
-            btnEditar.textContent = "Editar";
-            btnEditar.className = "btn btn-primary btn-sm";
-            btnEditar.addEventListener("click", function() {
-                window.editarVenta(index);
-            });
-            acciones.appendChild(btnEditar);
-
-            const btnEliminar = document.createElement("button");
-            btnEliminar.textContent = "Eliminar";
-            btnEliminar.className = "boton-eliminar";
-            btnEliminar.addEventListener("click", function() {
-                if (confirm("¿Estás seguro de que deseas eliminar esta venta?")) {
-                    ventas.splice(index, 1);
-                    localStorage.setItem("ventas", JSON.stringify(ventas));
-                    location.reload(); // Recargar la página para actualizar la tabla
-                }
-            });
-            acciones.appendChild(btnEliminar);
-            }
-
-
-        });
-    });
-}
- 
-
-
-    
-

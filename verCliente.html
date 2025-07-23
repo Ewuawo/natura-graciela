@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+ 
+    <title>Ver Clientes</title>
+</head>
+<body>
+    <div class="container">
+    <aside class="sidebar">
+        <h2>Natura Graciela</h2>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="productos.html">Productos</a></li>
+                <li><a href="clientes.html">Clientes</a></li>
+                <li><a href="ventas.html">Ventas</a></li>
+                <li><a href="agregarCliente.html">Agregar Cliente</a></li>
+                <li><a href="agregarProducto.html">Agregar Producto</a></li>
+                <li><a href="registrarVentas.html">Registrar Venta</a></li>
+            </ul>
+        </nav>
+    </aside>
+   <main class="main-content">
+    <div class="titulo-formulario">
+        <h1>Cliente</h1>
+        <h2 id="nombreCliente"></h2>
+    </div>
+    <section class="product-list">
+        <h2>Historial de compra</h2>
+      
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Producto</th>
+                    <th>Medio de Pago</th>
+                    <th>Total</th>
+                    <th>Ver Detalle</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-compras"></tbody>
+        </table>
+
+
+
+
+
+        <div id="detalle-compra" style="display:none;">
+        <h2>Detalle de la Compra</h2>
+        <p><strong>Producto:</strong> <span id="detalle-producto"></span></p>
+        <p><strong>Medio de pago:</strong> <span id="detalle-medio"></span></p>
+        <p><strong>Total:</strong> $<span id="detalle-total"></span></p>
+        <p><strong>Cuotas:</strong></p>
+        <table border="1">
+            <thead>
+                <tr><th>Fecha Vencimiento</th><th>N° Cuota</th><th>Monto</th></tr>
+            </thead>
+            <tbody id="tabla-cuotas"></tbody>
+        </table>
+    </div>
+
+<div id="seccion-pago" style="display:none;">
+    <h3>Registrar Pago</h3>
+    <input type="number" id="monto-pago" placeholder="Monto entregado">
+    <button id="btn-registrar-pago">Registrar</button>
+    <p>Saldo Actual: $<span id="saldo-actual"></span></p>
+</div>
+
+
+
+
+</div>
+
+       
+
+
+
+
+
+        
+
+  
+
+        </section>
+    </main>
+    </div>
+    <footer>    
+        <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
+    </footer>
+
+    <div id="modal-editar-cuota" style="display: none; position: fixed; top:20%; left:50%; transform:translateX(-50%); background: white; padding: 20px; border:1px solid #ccc; z-index: 1000;">
+        <h3>Editar Monto de Cuota</h3>
+        <input type="number" id="nuevo-monto-cuota" placeholder="Nuevo monto">
+        <button id="btn-guardar-cuota">Guardar</button>
+        <button onclick="document.getElementById('modal-editar-cuota').style.display='none'">Cancelar</button>   
+    </div>
+        <script src="assets/js/scripts-verClientes.js"></script>
+
+</body>
+</html>

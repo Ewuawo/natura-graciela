@@ -2,7 +2,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 body {
@@ -46,7 +46,10 @@ body {
 .main-content {
   flex: 1;
   padding: 20px;
+  background-color: #f9f9f9;
+  min-height: 100vh;
 }
+
 
 header h1 {
   margin-bottom: 20px;
@@ -74,6 +77,19 @@ header h1 {
 .product-list h2 {
   margin-bottom: 10px;
   color: #d63384;
+}
+
+.product-list div {
+  background-color: #fff;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.product-list p {
+  font-size: 16px;
+  margin: 10 px 0;
 }
 
 table {
@@ -120,6 +136,22 @@ thead {
 
 .boton-flotante:hover {
   background-color: #b61d6f;
+}
+
+#btnRegistrarPago {
+  margin-top: 10px;
+  padding: 12px 20px;
+  background-color: #e91e63;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+#btnRegistrarPago:hover {
+  background-color: #c2185b;
 }
 
 .formulario-cliente form {
@@ -275,4 +307,8 @@ background-color: #fff;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   margin: 20px;
   font-weight: bold;
+}
+
+#detalle-compra {
+    margin-top: 20px; /* podés ajustar más o menos según lo que te guste */
 }

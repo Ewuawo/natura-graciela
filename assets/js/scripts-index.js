@@ -44,7 +44,7 @@ ventas.forEach(venta => {
     if (venta.cuotas) {
         venta.cuotas.forEach(cuota => {
             const fVencimiento = new Date(cuota.fechaVencimiento);
-            if (fVencimiento >= oy && fVencimiento <= sieteDias) {
+            if (fVencimiento >= oy && fVencimiento <= sieteDias && cuota.monto > 0) {
                 cuotasVencer.push({
                     cliente: venta.cliente,
                     cuota: cuota.monto.toFixed(2),

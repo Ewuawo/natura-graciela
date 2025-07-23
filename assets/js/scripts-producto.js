@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <td>${isNaN(Number(producto.pCosto))  ? "0.00" : Number(producto.pCosto).toFixed(2) }</td>
             <td>${isNaN(Number(producto.pVenta)) ? "0.00" : Number(producto.pVenta).toFixed(2)}</td>
             <td>${formatearFecha(producto.vencimiento)}</td>
-            <td>${producto.cantidad}</td>
+            <td>${producto.cantidad > 0 ? producto.cantidad : 'SIN STOCK'}</td>
             <td>
                 <button class="editarProducto">Editar</button>
                 <button class="boton-eliminar">Eliminar</button>
@@ -136,4 +136,40 @@ document.addEventListener("DOMContentLoaded", function () {
         location.href = "productos.html"; // Redirigir a la página de productos
       });
   }
+
+
+
+const buscador = document.getElementById("buscar");
+if (buscador) {
+  buscador.addEventListener("input", function () {
+    const filtro = this.value.toLowerCase();
+    const listaProductos = JSON.parse(localStorage.getItem("listaProductos")) || [];
+    const tabla = document.getElementById("tabla-productos");
+    tabla.innerHTML = "";
+
+    listaProductos
+    .filter(producto =>
+        producto.nombre.toLowerCase().includes(filtro) ||
+        producto.detalle.toLowerCase().includes(filtro)
+    )
+    .forEach((producto, index) => {
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${producto.nombre}</td>
+            <td>${producto.detalle}</td>
+            <td>${Number(producto.pCosto).toFixed(2)}</td>
+            <td>${Number(producto.pVenta).toFixed(2)}</td>
+            <td>${formatearFecha(producto.vencimiento)}</td>
+            <td>${producto.cantidad > 0 ? producto.cantidad : 'SIN STOCK'}</td>
+            <td>
+                <button class="editarProducto">Editar</button>
+                <button class="boton-eliminar">Eliminar</button>
+            </td>
+        `;
+        tabla.appendChild(fila);
+    });
+});
+}
+  
 });

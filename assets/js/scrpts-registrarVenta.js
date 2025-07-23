@@ -115,7 +115,7 @@ if (formulario) {
         if (index !== -1){
             productos[index].cantidad -= cantidad;
             if (productos[index].cantidad <= 0){
-                productos.splice(index, 1);
+                productos[index].cantidad = 0;
             }
             localStorage.setItem("listaProductos", JSON.stringify(productos));
             const ventas = JSON.parse(localStorage.getItem("ventas") || "[]");

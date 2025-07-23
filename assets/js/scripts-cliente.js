@@ -48,6 +48,7 @@ if (document.getElementById("tabla-clientes")) {
             <td>
                 <button class="editarCliente">Editar</button>
                 <button class="boton-eliminar">Eliminar</button>
+                <button class="boton-ver">Ver</button>
             </td>
         `;
         tablaClientes.appendChild(fila);
@@ -83,6 +84,27 @@ if (document.querySelectorAll(".boton-eliminar").length > 0) {
         });
     }); 
 }
+
+//Ver cliente
+if (document.querySelectorAll(".boton-ver").length > 0) {
+    document.querySelectorAll(".boton-ver").forEach((boton, index) => {
+        boton.addEventListener("click", function() {
+            const listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
+            const cliente = listaClientes[index];
+
+            localStorage.setItem("clienteVer", JSON.stringify(cliente));
+            localStorage.setItem("indiceVer", index);
+
+            location.href = "verCliente.html";
+        })
+    })
+}
+
+
+
+
+
+
   if (document.getElementById("eCliente")) {
     const cliente = JSON.parse(localStorage.getItem("clienteEditar"));
     if (cliente) {
@@ -130,8 +152,63 @@ if (document.getElementById("eCliente")) {
 }
 
 
+function activarEventosBotones() {
+    document.querySelectorAll(".editarCliente").forEach((boton,index) => {
+        boton.addEventListener("click", function() {
+            const listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
+            const cliente = listaClientes[index];
+            localStorage.setItem("clienteEditar", JSON.stringify(cliente));
+            localStorage.setItem("indiceEditar", index);
+            location.href = "verEditarClientes.html";
+        });
+    });
+    // lo mismo para eliminar y ver si querés
+}
+if (document.getElementById("buscar")) {
+    document.getElementById("buscar").addEventListener("input", function(){
+        const filtro = this.value.toLowerCase();
+        const listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
+        const tabla = document.getElementById("tabla-clientes");
+        tabla.innerHTML = "";
+
+        listaClientes
+        .filter(cliente =>
+            cliente.nombre.toLowerCase().includes(filtro) ||
+            cliente.apellido.toLowerCase().includes(filtro)
+        )
+        .forEach((cliente, index) => {
+            const fila = document.createElement("tr");
+            fila.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${cliente.nombre}</td>
+                <td>${cliente.apellido}</td>
+                <td>${cliente.telefono}</td>
+                <td>${cliente.direccion}</td>
+                <td>
+                    <button class="editarCliente">Editar</button>
+                    <button class="boton-eliminar">Eliminar</button>
+                    <button class="boton-ver">Ver</button>
+                </td>
+            `;
+            tabla.appendChild(fila);
+        });
+
+        activarEventosBotones(); // 🔑 volvés a activar los eventos
+        
+        
+    });
+}
 
 
+
+
+const botonCancelar = document.querySelector(".boton-cancelar");
+if (botonCancelar) {
+    botonCancelar.addEventListener("click", function (event) {
+        event.preventDefault();
+        location.href = "clientes.html";
+    });
+}
 
 
 

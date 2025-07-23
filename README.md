@@ -1,7 +1,7 @@
 ﻿# 🌸 Natura
 
 **Natura** es una aplicación pensada para revendedoreas de productos de cosmética que buscan llevar un control profesional, simple y eficiente de su negocio.
-
+👉 **[Ver sitio online (GitHub Pages)](https://ewuawo.github.io/natura-graciela/)**
 ---
 
 ## ✨ Funcionalidades principales
@@ -27,8 +27,8 @@
 ## ⚙️ Tecnologías sugeridas 
 
 - Frontend: HTML, CSS, JavaScript
-- Backend: Node.js o PHP
-- Base de datos: SQL Server o MySQL
+- Backend: Node.js 
+- Base de datos: SQL Server 
 - Control de versiones: Git + GitHub
 
 ---

@@ -1,175 +1,73 @@
-document.addEventListener("DOMContentLoaded", function () {
- 
- 
-  //cambiar formato fecha
+document.addEventListener("DOMContentLoaded", () => {
+  const tabla = document.getElementById("tabla-productos");
+  const buscador = document.getElementById("buscar");
+
   function formatearFecha(fecha) {
-    const partes = fecha.split("-");
-    return `${partes[2]}-${partes[1]}-${partes[0]}`;
+    // Si no hay fecha o no es string, devolvemos un placeholder
+    if (!fecha || typeof fecha !== "string") return "—";
+
+    // Si viene con hora tipo ISO, separamos por "T" primero
+    const soloFecha = fecha.split("T")[0];
+
+    const partes = soloFecha.split("-");
+    // Si no tiene 3 partes, devolvemos la misma cadena
+    if (partes.length !== 3) return soloFecha;
+
+    const [yyyy, mm, dd] = partes;
+    return `${dd}-${mm}-${yyyy}`;
   }
 
- 
-
-  //Tabla de productos
-  if (document.getElementById("tabla-productos")) {
-    const listaProductos =
-      JSON.parse(localStorage.getItem("listaProductos")) || [];
-    const tabla = document.getElementById("tabla-productos");
-
-    listaProductos.forEach((producto, index) => {
-      const fila = document.createElement("tr");
-      fila.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${producto.nombre}</td>
-            <td>${producto.detalle}</td>
-            <td>${isNaN(Number(producto.pCosto))  ? "0.00" : Number(producto.pCosto).toFixed(2) }</td>
-            <td>${isNaN(Number(producto.pVenta)) ? "0.00" : Number(producto.pVenta).toFixed(2)}</td>
-            <td>${formatearFecha(producto.vencimiento)}</td>
-            <td>${producto.cantidad > 0 ? producto.cantidad : 'SIN STOCK'}</td>
-            <td>
-                <button class="editarProducto">Editar</button>
-                <button class="boton-eliminar">Eliminar</button>
-            </td>
-        `;
-
-      tabla.appendChild(fila);
-    });
-  }
-  //Eliminar productos
-  if (document.querySelectorAll(".boton-eliminar").length > 0) {
-    document.querySelectorAll(".boton-eliminar").forEach((boton, index) => {
-      boton.addEventListener("click", function () {
-        const listaProductos =
-          JSON.parse(localStorage.getItem("listaProductos")) || [];
-        if (confirm("¿Estás seguro de que deseas eliminar este producto?")) {
-          listaProductos.splice(index, 1);
-          localStorage.setItem(
-            "listaProductos",
-            JSON.stringify(listaProductos)
-          );
-          location.reload(); // Recargar la página para reflejar los cambios
-        }
-      });
-    });
-  }
-
-  //Editar productos
-  if (document.querySelectorAll(".editarProducto").length > 0) {
-    document.querySelectorAll(".editarProducto").forEach((boton, index) => {
-      boton.addEventListener("click", function () {
-        const listaProductos =
-          JSON.parse(localStorage.getItem("listaProductos")) || [];
-        const producto = listaProductos[index];
-
-        localStorage.setItem("productoEditar", JSON.stringify(producto));
-        localStorage.setItem("indiceEditar", index);
-
-        location.href = "editarProductos.html";
-      });
-    });
-  }
-
-  if (document.getElementById("eProducto")) {
-    const producto = JSON.parse(localStorage.getItem("productoEditar"));
-    if (producto) {
-      document.getElementById("nombre").value = producto.nombre;
-      document.getElementById("detalle").value = producto.detalle;
-      document.getElementById("pCosto").value = producto.pCosto;
-      document.getElementById("pVenta").value = producto.pVenta;
-      document.getElementById("vencimiento").value = producto.vencimiento;
-      document.getElementById("cantidad").value = producto.cantidad;
-    }
-  }
-
-  if (document.getElementById("eProducto")) {
-    document
-      .getElementById("eProducto")
-      .addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        const nombre = document.getElementById("nombre").value.trim();
-        const detalle = document.getElementById("detalle").value.trim();
-        const pCosto = parseFloat(
-          document.getElementById("pCosto").value.trim()
-        );
-        const pVenta = parseFloat(document.getElementById("pVenta").value.trim());
-        const vencimiento = document.getElementById("vencimiento").value.trim();
-        const cantidad = parseInt(
-          document.getElementById("cantidad").value.trim()
-        );
-
-        if (
-          !nombre ||
-          !detalle ||
-          isNaN(pCosto) ||
-          isNaN(pVenta) ||
-          !vencimiento ||
-          isNaN(cantidad)
-        ) {
-          alert("Por favor, complete todos los campos correctamente.");
-          return;
-        }
-
-        const indiceEditar = localStorage.getItem("indiceEditar");
-        let listaProductos =
-          JSON.parse(localStorage.getItem("listaProductos")) || [];
-
-        listaProductos[indiceEditar] = {
-          nombre,
-          detalle,
-          pCosto,
-          pVenta,
-          vencimiento,
-          cantidad,
-        };
-        localStorage.setItem("listaProductos", JSON.stringify(listaProductos));
-
-        alert("Producto editado exitosamente.");
-        location.href = "productos.html"; // Redirigir a la página de productos
-      });
-  }
-
-  if (document.getElementById("eProducto")) {
-    document
-      .getElementById("eProducto")
-      .addEventListener("reset", function (event) {
-        event.preventDefault();
-        location.href = "productos.html"; // Redirigir a la página de productos
-      });
-  }
-
-
-
-const buscador = document.getElementById("buscar");
-if (buscador) {
-  buscador.addEventListener("input", function () {
-    const filtro = this.value.toLowerCase();
-    const listaProductos = JSON.parse(localStorage.getItem("listaProductos")) || [];
-    const tabla = document.getElementById("tabla-productos");
+  function cargarProductos(filtro = "") {
     tabla.innerHTML = "";
-
-    listaProductos
-    .filter(producto =>
-        producto.nombre.toLowerCase().includes(filtro) ||
-        producto.detalle.toLowerCase().includes(filtro)
-    )
-    .forEach((producto, index) => {
-        const fila = document.createElement("tr");
-        fila.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${producto.nombre}</td>
-            <td>${producto.detalle}</td>
-            <td>${Number(producto.pCosto).toFixed(2)}</td>
-            <td>${Number(producto.pVenta).toFixed(2)}</td>
-            <td>${formatearFecha(producto.vencimiento)}</td>
-            <td>${producto.cantidad > 0 ? producto.cantidad : 'SIN STOCK'}</td>
-            <td>
+    fetch("http://localhost:3000/productos")
+      .then((res) => {
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        return res.json();
+      })
+      .then((lista) => {
+        lista
+          .filter(
+            (p) =>
+              p.nombre.toLowerCase().includes(filtro) ||
+              p.detalle.toLowerCase().includes(filtro)
+          )
+          .forEach((p, i) => {
+            const tr = document.createElement("tr");
+            tr.dataset.id = p.id;
+            const fechaFormateada = formatearFecha(p.fechaVencimiento);
+            tr.innerHTML = `
+              <td>${i + 1}</td>
+              <td>${p.nombre}</td>
+              <td>${p.detalle}</td>
+              <td>${p.pCosto.toFixed(2)}</td>
+              <td>${p.pVenta.toFixed(2)}</td>
+              <td>${fechaFormateada}</td>
+              <td>${p.cantidad > 0 ? p.cantidad : "SIN STOCK"}</td>
+              <td>
                 <button class="editarProducto">Editar</button>
                 <button class="boton-eliminar">Eliminar</button>
-            </td>
-        `;
-        tabla.appendChild(fila);
-    });
-});
-}
-  
+              </td>`;
+            tabla.appendChild(tr);
+          });
+      })
+      .catch((err) => {
+        console.error("Error al cargar productos:", err);
+        alert("Ocurrió un error al obtener los productos:\n" + err.message);
+      });
+  }
+
+  //  Cargo todo al entrar
+  cargarProductos();
+
+  //  vuelvo a cargar al tipear
+  buscador.addEventListener("input", (e) => {
+    cargarProductos(e.target.value.toLowerCase());
+  });
+  // Editar producto
+  tabla.addEventListener("click", (e) => {
+    if (e.target.classList.contains("editarProducto")) {
+      const id = e.target.closest("tr").dataset.id;
+      window.location.href = `editarProductos.html?id=${id}`;
+    }
+  });
 });

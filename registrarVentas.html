@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Registrar Ventas</title>
     <link rel="stylesheet" href="assets/css/style.css" />
-        <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
-
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div class="container">
@@ -37,35 +39,75 @@
             <select id="producto" name="producto" required></select>
 
             <label for="fecha">Fecha de Venta:</label>
-            <input type="date" id="fecha" name="fecha" required />                                     
-                        
+            <input type="date" id="fecha" name="fecha" required />
+
             <label for="cantidad">Cantidad:</label>
-            <input type="number" id="cantidad" name="cantidad" required step="1"  min="1"/>
-            
+            <input
+              type="number"
+              id="cantidad"
+              name="cantidad"
+              required
+              step="1"
+              min="1"
+            />
+
             <label for="pCosto">Precio de Costo:</label>
-            <input type="number" id="pCosto" name="pCosto" required  step="0.01"   min="0"/>
+            <input
+              type="number"
+              id="pCosto"
+              name="pCosto"
+              required
+              step="0.01"
+              min="0"
+            />
 
             <label for="pVenta">Precio de Venta:</label>
-            <input type="number" id="pVenta" name="pVenta" required>
-            
+            <input type="number" id="pVenta" name="pVenta" required />
+
+            <!-- Botón para agregar al carrito -->
+            <div style="margin: 8px 0">
+              <button type="button" id="agregarItem">Agregar ítem</button>
+            </div>
+
+            <!-- Lista de ítems -->
+            <div>
+              <h3>Ítems de la venta</h3>
+              <table
+                id="tablaItems"
+                style="width: 100%; border-collapse: collapse"
+              >
+                <thead>
+                  <tr>
+                    <th style="text-align: left">Producto</th>
+                    <th style="text-align: right">Cant.</th>
+                    <th style="text-align: right">$ Unit.</th>
+                    <th style="text-align: right">Subtotal</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <p style="text-align: right; font-weight: 600; margin-top: 6px">
+                Total venta: $ <span id="totalVenta">0.00</span>
+              </p>
+            </div>
+
             <label for="medioPago">Medio de Pago:</label>
             <select id="medioPago" name="medioPago" required>
               <option value="efectivo">Efectivo</option>
               <option value="credito">Credito</option>
             </select>
-            
 
             <div id="seccion-cuotas" style="display: none">
               <label for="entregaInicial">Entrega Inicial</label>
-              <input type="number" id="entregaInicial" min="0" value="0">
+              <input type="number" id="entregaInicial" min="0" value="0" />
               <label for="cuotas">Cantidad de Cuotas:</label>
               <input type="number" id="cuotas" name="cuotas" min="1" max="5" />
-    
+
               <div id="fechas-cuotas"></div>
               <div id="info-cuotas"></div>
               <label for="interes">Interés (%):</label>
-<input type="number" id="interes" min="0" value="0">
-
+              <input type="number" id="interes" min="0" value="0" />
             </div>
 
             <div class="botones">

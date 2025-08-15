@@ -1,106 +1,140 @@
+// assets/js/scrpts-registrarVenta.js
 document.addEventListener("DOMContentLoaded", function () {
-  // ===== Carga de selects existentes =====
+  // ====== Utils Storage ======
+  const getProductos = () =>
+    JSON.parse(localStorage.getItem("listaProductos")) || [];
+  const setProductos = (arr) =>
+    localStorage.setItem("listaProductos", JSON.stringify(arr));
+
+  // ====== Carga de selects ======
   function cargarSelectClientes() {
     const clientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
-    const clienteSelect = document.getElementById("cliente");
-    clienteSelect.innerHTML = '<option value="">Seleccionar Cliente</option>';
-    clientes.forEach((cliente) => {
-      const option = document.createElement("option");
-      option.value = `${cliente.nombre} ${cliente.apellido}`;
-      option.textContent = `${cliente.nombre} ${cliente.apellido}`;
-      clienteSelect.appendChild(option);
+    const sel = document.getElementById("cliente");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Seleccionar Cliente</option>';
+    clientes.forEach((c) => {
+      const o = document.createElement("option");
+      o.value = `${c.nombre} ${c.apellido}`;
+      o.textContent = `${c.nombre} ${c.apellido}`;
+      sel.appendChild(o);
     });
   }
 
+  // Muestra cada nombre 1 sola vez (aunque haya varios lotes)
   function cargarSelectProductos() {
-    const productos = JSON.parse(localStorage.getItem("listaProductos")) || [];
-    const productoSelect = document.getElementById("producto");
-    productoSelect.innerHTML = '<option value="">Seleccionar Producto</option>';
-    productos.forEach((producto) => {
-      const option = document.createElement("option");
-      option.value = producto.nombre;
-      option.textContent = producto.nombre;
-      productoSelect.appendChild(option);
+    const sel = document.getElementById("producto");
+    if (!sel) return;
+    const prods = getProductos();
+    sel.innerHTML = '<option value="">Seleccionar Producto</option>';
+    [...new Set(prods.map((p) => p.nombre))].forEach((nombre) => {
+      const o = document.createElement("option");
+      o.value = nombre;
+      o.textContent = nombre;
+      sel.appendChild(o);
     });
   }
 
   cargarSelectClientes();
   cargarSelectProductos();
-  document.getElementById("fecha").valueAsDate = new Date();
+  const fechaEl = document.getElementById("fecha");
+  if (fechaEl) fechaEl.valueAsDate = new Date();
 
-  // ===== Estado de la línea en edición y del carrito =====
+  // ====== FEFO helpers ======
+  // lotes por nombre con cantidad > 0, ordenados por vencimiento asc
+  function lotesPorNombre(nombre) {
+    return getProductos()
+      .map((p, idx) => ({ ...p, __idx: idx }))
+      .filter((p) => p.nombre === nombre && (parseInt(p.cantidad) || 0) > 0)
+      .sort((a, b) => (a.vencimiento || "").localeCompare(b.vencimiento || ""));
+  }
+  function loteMasProximo(nombre) {
+    const lotes = lotesPorNombre(nombre);
+    return lotes.length ? lotes[0] : null;
+  }
+  function stockTotalNombre(nombre) {
+    return getProductos()
+      .filter((p) => p.nombre === nombre)
+      .reduce((acc, p) => acc + (parseInt(p.cantidad) || 0), 0);
+  }
+
+  // ====== Estado de línea y carrito ======
   let precioCostoUnitario = 0;
   let precioVentaUnitario = 0;
-  let stockProducto = 0;
 
-  const items = []; // { producto, cantidad, pCostoUnit, pVentaUnit, subtotalVenta }
+  const items = []; // { producto, cantidad, pCostoUnit, pVentaUnit }
   const tablaBody = document.querySelector("#tablaItems tbody");
   const totalVentaEl = document.getElementById("totalVenta");
 
-  function productosLS() {
-    return JSON.parse(localStorage.getItem("listaProductos")) || [];
-  }
-
-  function findProd(nombre) {
-    return productosLS().find((p) => p.nombre === nombre);
-  }
-
-  // Stock disponible = stock en LS - cantidad ya reservada en carrito para ese producto
+  // stock disponible = total por nombre - lo reservado en carrito
   function stockDisponible(nombre) {
-    const prod = findProd(nombre);
-    if (!prod) return 0;
     const reservado = items
       .filter((i) => i.producto === nombre)
       .reduce((acc, i) => acc + i.cantidad, 0);
-    return (parseInt(prod.cantidad) || 0) - reservado;
+    return stockTotalNombre(nombre) - reservado;
   }
 
-  // ==== Línea de edición (select + cantidad) ====
+  // ====== Refs UI línea ======
   const selProducto = document.getElementById("producto");
   const inpCantidad = document.getElementById("cantidad");
   const inpPCosto = document.getElementById("pCosto");
   const inpPVenta = document.getElementById("pVenta");
+  const detalleEl = document.getElementById("detalleProducto");
 
-  selProducto.addEventListener("change", function () {
-    const producto = findProd(this.value);
-    if (producto) {
-      precioCostoUnitario = parseFloat(producto.pCosto) || 0;
-      precioVentaUnitario = parseFloat(producto.pVenta) || 0;
-      stockProducto = stockDisponible(producto.nombre);
-      // mostramos precios unitarios inicialmente
-      inpPCosto.value = precioCostoUnitario.toFixed(2);
-      inpPVenta.value = precioVentaUnitario.toFixed(2);
+  if (selProducto) {
+    selProducto.addEventListener("change", function () {
+      const nombre = this.value;
+      const lote = loteMasProximo(nombre); // FEFO: se sugiere el que se usará primero
+
+      if (lote) {
+        precioCostoUnitario = parseFloat(lote.pCosto) || 0;
+        precioVentaUnitario = parseFloat(lote.pVenta) || 0;
+        if (inpPCosto) inpPCosto.value = precioCostoUnitario.toFixed(2);
+        if (inpPVenta) inpPVenta.value = precioVentaUnitario.toFixed(2);
+        if (detalleEl)
+          detalleEl.textContent = `${lote.detalle || ""} — Vence: ${
+            lote.vencimiento || "N/D"
+          }`;
+      } else {
+        precioCostoUnitario = precioVentaUnitario = 0;
+        if (inpPCosto) inpPCosto.value = "";
+        if (inpPVenta) inpPVenta.value = "";
+        if (detalleEl) detalleEl.textContent = "";
+      }
       actualizarTotalesLinea();
-    } else {
-      precioCostoUnitario = precioVentaUnitario = stockProducto = 0;
-      inpPCosto.value = "";
-      inpPVenta.value = "";
-    }
-  });
-
-  inpCantidad.addEventListener("input", function () {
-    const cant = parseInt(this.value) || 0;
-    const nombre = selProducto.value;
-    const disp = stockDisponible(nombre);
-    if (cant > disp) {
-      alert(
-        `❌ Stock insuficiente. Solo hay ${disp} unidades disponibles de "${nombre}".`
-      );
-      this.value = "";
-    }
-    actualizarTotalesLinea();
-  });
-
-  function actualizarTotalesLinea() {
-    const cantidad = parseInt(inpCantidad.value) || 0;
-    // en los inputs mostramos SUBTOTALES de la línea para que veas cuánto suma
-    inpPCosto.value = (cantidad * precioCostoUnitario).toFixed(2);
-    inpPVenta.value = (cantidad * precioVentaUnitario).toFixed(2);
-    actualizarFechasyCuotas(); // recalcula cuotas con el total
+    });
   }
 
-  // ===== Carrito =====
+  if (inpCantidad) {
+    inpCantidad.addEventListener("input", function () {
+      const cant = parseInt(this.value) || 0;
+      const nombre = selProducto.value;
+      const disp = stockDisponible(nombre);
+      if (cant > disp) {
+        alert(
+          `❌ Stock insuficiente. Solo hay ${disp} unidades disponibles de "${nombre}".`
+        );
+        this.value = "";
+      }
+      actualizarTotalesLinea();
+    });
+  }
+
+  function actualizarTotalesLinea() {
+    const cantidad = parseInt(inpCantidad?.value) || 0;
+    if (inpPCosto)
+      inpPCosto.value = (cantidad * precioCostoUnitario).toFixed(2);
+    if (inpPVenta)
+      inpPVenta.value = (cantidad * precioVentaUnitario).toFixed(2);
+    actualizarFechasyCuotas();
+  }
+
+  // ====== Carrito ======
+  function totalVentaActual() {
+    return items.reduce((acc, it) => acc + it.cantidad * it.pVentaUnit, 0);
+  }
+
   function renderItems() {
+    if (!tablaBody) return;
     tablaBody.innerHTML = "";
     items.forEach((it, idx) => {
       const tr = document.createElement("tr");
@@ -116,80 +150,65 @@ document.addEventListener("DOMContentLoaded", function () {
       tablaBody.appendChild(tr);
     });
 
-    // total
-    const total = items.reduce(
-      (acc, it) => acc + it.cantidad * it.pVentaUnit,
-      0
-    );
-    totalVentaEl.textContent = total.toFixed(2);
+    if (totalVentaEl) totalVentaEl.textContent = totalVentaActual().toFixed(2);
 
-    // listeners quitar
     tablaBody.querySelectorAll(".quitar").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const i = parseInt(e.currentTarget.getAttribute("data-i"));
         items.splice(i, 1);
         renderItems();
-        // al quitar, se libera stock y se recalculan cuotas
-        stockProducto = stockDisponible(selProducto.value);
         actualizarTotalesLinea();
         actualizarFechasyCuotas();
       });
     });
   }
 
-  document.getElementById("agregarItem").addEventListener("click", function () {
-    const nombre = selProducto.value;
-    const cantidad = parseInt(inpCantidad.value) || 0;
+  const btnAgregarItem = document.getElementById("agregarItem");
+  if (btnAgregarItem) {
+    btnAgregarItem.addEventListener("click", function () {
+      const nombre = selProducto.value;
+      const cantidad = parseInt(inpCantidad.value) || 0;
 
-    if (!nombre) {
-      alert("Elegí un producto.");
-      return;
-    }
-    if (cantidad <= 0) {
-      alert("Ingresá una cantidad válida.");
-      return;
-    }
+      if (!nombre) return alert("Elegí un producto.");
+      if (cantidad <= 0) return alert("Ingresá una cantidad válida.");
 
-    const disp = stockDisponible(nombre);
-    if (cantidad > disp) {
-      alert(
-        `❌ Stock insuficiente. Solo hay ${disp} unidades disponibles de "${nombre}".`
-      );
-      return;
-    }
+      const disp = stockDisponible(nombre);
+      if (cantidad > disp) {
+        return alert(
+          `❌ Stock insuficiente. Solo hay ${disp} unidades disponibles de "${nombre}".`
+        );
+      }
 
-    const prod = findProd(nombre);
-    items.push({
-      producto: nombre,
-      cantidad,
-      pCostoUnit: parseFloat(prod.pCosto) || 0,
-      pVentaUnit: parseFloat(prod.pVenta) || 0,
-    });
+      // Precio sugerido desde el lote que se usará primero
+      const lote = loteMasProximo(nombre);
+      items.push({
+        producto: nombre,
+        cantidad,
+        pCostoUnit: parseFloat(lote?.pCosto) || 0,
+        pVentaUnit: parseFloat(lote?.pVenta) || 0,
+      });
 
-    // limpiar línea y refrescar
-    selProducto.value = "";
-    inpCantidad.value = "";
-    inpPCosto.value = "";
-    inpPVenta.value = "";
-    precioCostoUnitario = precioVentaUnitario = stockProducto = 0;
+      // limpiar línea
+      selProducto.value = "";
+      inpCantidad.value = "";
+      if (inpPCosto) inpPCosto.value = "";
+      if (inpPVenta) inpPVenta.value = "";
+      if (detalleEl) detalleEl.textContent = "";
+      precioCostoUnitario = precioVentaUnitario = 0;
 
-    renderItems();
-    actualizarFechasyCuotas();
-  });
-
-  // ===== Toggle de cuotas (igual que antes) =====
-  const medioPago = document.getElementById("medioPago");
-  const seccionCuotas = document.getElementById("seccion-cuotas");
-  if (medioPago) {
-    medioPago.addEventListener("change", function () {
-      seccionCuotas.style.display = this.value === "credito" ? "block" : "none";
+      renderItems();
       actualizarFechasyCuotas();
     });
   }
 
-  // ===== Cuotas sobre el TOTAL de la venta =====
-  function totalVentaActual() {
-    return items.reduce((acc, it) => acc + it.cantidad * it.pVentaUnit, 0);
+  // ====== Medio de pago / cuotas ======
+  const medioPago = document.getElementById("medioPago");
+  const seccionCuotas = document.getElementById("seccion-cuotas");
+  if (medioPago && seccionCuotas) {
+    medioPago.addEventListener("change", function () {
+      seccionCuotas.style.display = this.value === "credito" ? "block" : "none";
+      actualizarFechasyCuotas();
+    });
   }
 
   function actualizarFechasyCuotas() {
@@ -221,15 +240,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // recalcular cuotas al cambiar estos campos
-  const cuotasInp = document.getElementById("cuotas");
-  const entregaInp = document.getElementById("entregaInicial");
-  const interesInp = document.getElementById("interes");
-  if (cuotasInp) cuotasInp.addEventListener("input", actualizarFechasyCuotas);
-  if (entregaInp) entregaInp.addEventListener("input", actualizarFechasyCuotas);
-  if (interesInp) interesInp.addEventListener("input", actualizarFechasyCuotas);
+  ["cuotas", "entregaInicial", "interes"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", actualizarFechasyCuotas);
+  });
 
-  // ===== Envío del formulario: descuenta TODOS los ítems del carrito =====
+  // ====== Submit: validación + descuento FEFO por lotes ======
   const formulario = document.getElementById("registrarVenta");
   if (formulario) {
     formulario.addEventListener("submit", function (event) {
@@ -240,39 +256,54 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      // Validación final de stock por si cambió desde que se cargó
-      const prods = productosLS();
+      // Validación final: suma por nombre vs stock total de todos los lotes
+      const prodsNow = getProductos();
       for (const it of items) {
-        const idx = prods.findIndex((p) => p.nombre === it.producto);
-        if (idx === -1) {
-          alert(`El producto "${it.producto}" ya no existe.`);
-          return;
-        }
-        // stock disponible real al momento del submit (sin contar carrito)
-        const disponible = parseInt(prods[idx].cantidad) || 0;
-        const yaReservado = items
+        const disponibleTotal = prodsNow
+          .filter((p) => p.nombre === it.producto)
+          .reduce((a, p) => a + (parseInt(p.cantidad) || 0), 0);
+
+        const requeridoTotal = items
           .filter((x) => x.producto === it.producto)
           .reduce((a, b) => a + b.cantidad, 0);
-        if (yaReservado > disponible) {
+
+        if (requeridoTotal > disponibleTotal) {
           alert(
-            `❌ Stock insuficiente de "${it.producto}". Disponible: ${disponible}.`
+            `❌ Stock insuficiente de "${it.producto}". Disponible: ${disponibleTotal}.`
           );
           return;
         }
       }
 
-      // Descontar stock
-      items.forEach((it) => {
-        const prods = productosLS();
-        const idx = prods.findIndex((p) => p.nombre === it.producto);
-        if (idx !== -1) {
-          prods[idx].cantidad = Math.max(
-            0,
-            (parseInt(prods[idx].cantidad) || 0) - it.cantidad
+      // Descuento FEFO por producto
+      let lista = getProductos();
+      for (const it of items) {
+        let restar = it.cantidad;
+        const lotes = lista
+          .map((p, idx) => ({ ...p, __idx: idx }))
+          .filter(
+            (p) => p.nombre === it.producto && (parseInt(p.cantidad) || 0) > 0
+          )
+          .sort((a, b) =>
+            (a.vencimiento || "").localeCompare(b.vencimiento || "")
           );
-          localStorage.setItem("listaProductos", JSON.stringify(prods));
+
+        for (const lote of lotes) {
+          if (restar <= 0) break;
+          const cantLote = parseInt(lote.cantidad) || 0;
+          const aDescontar = Math.min(restar, cantLote);
+          lista[lote.__idx].cantidad = cantLote - aDescontar;
+          restar -= aDescontar;
         }
-      });
+
+        if (restar > 0) {
+          alert(
+            `❌ No se pudo descontar todo el stock de "${it.producto}". Faltan ${restar}.`
+          );
+          return;
+        }
+      }
+      setProductos(lista);
 
       // Armar venta
       const ventas = JSON.parse(localStorage.getItem("ventas") || "[]");
@@ -322,15 +353,16 @@ document.addEventListener("DOMContentLoaded", function () {
       ventas.push(nuevaVenta);
       localStorage.setItem("ventas", JSON.stringify(ventas));
 
-      alert("✅ Venta registrada y stock actualizado.");
+      alert("✅ Venta registrada y stock actualizado por FEFO.");
       this.reset();
+
       // limpiar carrito y UI
       items.splice(0, items.length);
       renderItems();
       actualizarFechasyCuotas();
-      // recargar selects y fecha
       cargarSelectProductos();
-      document.getElementById("fecha").valueAsDate = new Date();
+      if (detalleEl) detalleEl.textContent = "";
+      if (fechaEl) fechaEl.valueAsDate = new Date();
     });
   }
 });

@@ -24,30 +24,79 @@
           </ul>
         </nav>
       </aside>
+
       <main class="main-content">
         <div class="titulo-formulario">
           <h1>Registrar Venta</h1>
         </div>
+
         <div class="card formulario-cliente">
-          <form id="registrarVenta">
+          <form id="registrarVenta" autocomplete="off">
+            <!-- Cliente y fecha: requeridos -->
             <label for="cliente">Cliente:</label>
             <select id="cliente" name="cliente" required></select>
 
+            <!-- Línea de edición (SIN required) -->
             <label for="producto">Producto:</label>
-            <select id="producto" name="producto" required></select>
+            <select id="producto" name="producto"></select>
+            <p
+              id="detalleProducto"
+              style="font-style: italic; color: #555; margin: 4px 0"
+            ></p>
 
             <label for="fecha">Fecha de Venta:</label>
             <input type="date" id="fecha" name="fecha" required />                                     
                         
             <label for="cantidad">Cantidad:</label>
-            <input type="number" id="cantidad" name="cantidad" required step="1"  min="1"/>
-            
+            <input
+              type="number"
+              id="cantidad"
+              name="cantidad"
+              step="1"
+              min="1"
+            />
+
             <label for="pCosto">Precio de Costo:</label>
-            <input type="number" id="pCosto" name="pCosto" required  step="0.01"   min="0"/>
+            <input
+              type="number"
+              id="pCosto"
+              name="pCosto"
+              step="0.01"
+              min="0"
+            />
 
             <label for="pVenta">Precio de Venta:</label>
-            <input type="number" id="pVenta" name="pVenta" required>
-            
+            <input type="number" id="pVenta" name="pVenta" />
+
+            <!-- Botón para agregar al carrito -->
+            <div style="margin: 8px 0">
+              <button type="button" id="agregarItem">Agregar ítem</button>
+            </div>
+
+            <!-- Carrito -->
+            <div>
+              <h3>Ítems de la venta</h3>
+              <table
+                id="tablaItems"
+                style="width: 100%; border-collapse: collapse"
+              >
+                <thead>
+                  <tr>
+                    <th style="text-align: left">Producto</th>
+                    <th style="text-align: right">Cant.</th>
+                    <th style="text-align: right">$ Unit.</th>
+                    <th style="text-align: right">Subtotal</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <p style="text-align: right; font-weight: 600; margin-top: 6px">
+                Total venta: $ <span id="totalVenta">0.00</span>
+              </p>
+            </div>
+
+            <!-- Medio de pago y cuotas -->
             <label for="medioPago">Medio de Pago:</label>
             <select id="medioPago" name="medioPago" required>
               <option value="efectivo">Efectivo</option>
@@ -57,12 +106,14 @@
 
             <div id="seccion-cuotas" style="display: none">
               <label for="entregaInicial">Entrega Inicial</label>
-              <input type="number" id="entregaInicial" min="0" value="0">
+              <input type="number" id="entregaInicial" min="0" value="0" />
+
               <label for="cuotas">Cantidad de Cuotas:</label>
               <input type="number" id="cuotas" name="cuotas" min="1" max="5" />
     
               <div id="fechas-cuotas"></div>
               <div id="info-cuotas"></div>
+
               <label for="interes">Interés (%):</label>
 <input type="number" id="interes" min="0" value="0">
 
@@ -77,9 +128,12 @@
         </div>
       </main>
     </div>
+
     <footer>
       <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
     </footer>
-    <script src="assets/js/scrpts-registrarVenta.js"></script>
+
+    <!-- Cache-busting para asegurar que cargue el JS nuevo -->
+    <script src="assets/js/scrpts-registrarVenta.js?v=carrito3"></script>
   </body>
 </html>

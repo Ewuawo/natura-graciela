@@ -1,182 +1,216 @@
-document.addEventListener("DOMContentLoaded", function(){
+// assets/js/scripts-verClientes.js
+document.addEventListener("DOMContentLoaded", function () {
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, "0");
+  const hoyISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+  const ymd2dmy = (s) => (s ? s.split("-").reverse().join("-") : "");
 
-function formatearFecha(fecha) {
-    const partes = fecha.split("-");
-    return `${partes[2]}-${partes[1]}-${partes[0]}`;
-}
+  // ===== Cliente seleccionado =====
+  const cliente = JSON.parse(localStorage.getItem("clienteVer"));
+  if (!cliente) {
+    alert("No se encontró el cliente");
+    location.href = "clientes.html";
+    return;
+  }
+  const nombreCompleto = `${cliente.nombre} ${cliente.apellido}`;
+  $("nombreCliente").innerText = nombreCompleto;
 
+  // ===== Ventas del cliente + índice global =====
+  const todas = JSON.parse(localStorage.getItem("ventas")) || [];
+  const ventasCliente = []; // { venta, idxGlobal }
+  todas.forEach((v, i) => {
+    if (v.cliente === nombreCompleto)
+      ventasCliente.push({ venta: v, idxGlobal: i });
+  });
 
-    const cliente = JSON.parse(localStorage.getItem("clienteVer"));
-    if (!cliente) {
-        alert("No se encontró el cliente");
-        location.href = "clientes.html";
-        return;
+  // ===== Historial =====
+  const tbodyHist = $("tabla-compras");
+  if (!tbodyHist) {
+    console.error("Falta <tbody id='tabla-compras'>");
+    return;
+  }
+  tbodyHist.innerHTML = "";
+
+  ventasCliente.forEach(({ venta, idxGlobal }, pos) => {
+    const tr = document.createElement("tr");
+    const productosTxt =
+      Array.isArray(venta.items) && venta.items.length
+        ? venta.items.map((it) => it.producto).join(", ")
+        : venta.producto || "—"; // compat ventas viejas
+
+    const botonDetalle =
+      venta.medioPago === "credito"
+        ? `<button class="btn-ver-detalle" data-pos="${pos}" data-global="${idxGlobal}">Ver</button>`
+        : "Sin cuotas";
+
+    tr.innerHTML = `
+      <td>${ymd2dmy(venta.fecha)}</td>
+      <td>${productosTxt}</td>
+      <td>${venta.medioPago || ""}</td>
+      <td>$${Number(venta.total || 0).toFixed(2)}</td>
+      <td>${botonDetalle}</td>
+    `;
+    tbodyHist.appendChild(tr);
+  });
+
+  // ===== Estado de selección =====
+  let ventaSel = null;
+  let idxGlobal = -1;
+
+  function renderDetalle() {
+    if (!ventaSel) return;
+
+    const productosTxt =
+      Array.isArray(ventaSel.items) && ventaSel.items.length
+        ? ventaSel.items
+            .map((it) => `${it.producto} (x${it.cantidad})`)
+            .join(", ")
+        : ventaSel.producto || "—";
+
+    $("detalle-compra").style.display = "block";
+    $("detalle-producto").innerText = productosTxt;
+    $("detalle-medio").innerText = ventaSel.medioPago || "";
+    $("detalle-total").innerText = Number(ventaSel.total || 0).toFixed(2);
+
+    $("seccion-pago").style.display = "block";
+    $("saldo-actual").innerText = Number(ventaSel.total || 0).toFixed(2);
+
+    cargarCuotas(ventaSel);
+  }
+
+  function cargarCuotas(venta) {
+    const tb = $("tabla-cuotas");
+    tb.innerHTML = "";
+
+    (venta.cuotas || []).forEach((c) => {
+      // Historial completo (si existe)
+      const pagos = Array.isArray(c.pagos) ? c.pagos : [];
+
+      // Texto/HTML de todos los pagos: una línea por pago
+      const pagosHtml = pagos.length
+        ? `<ul style="margin:0; padding-left:16px;">
+           ${pagos
+             .map(
+               (p) =>
+                 `<li>${ymd2dmy(p.fecha)} — $${Number(p.monto).toFixed(2)}</li>`
+             )
+             .join("")}
+         </ul>`
+        : "";
+
+      // Si la cuota quedó en 0 alguna vez, guardamos la fecha de cancelación
+      const fechaCancelacionTxt = c.fechaPago ? ymd2dmy(c.fechaPago) : "";
+
+      const montoTxt =
+        Number(c.monto) <= 0 ? "Pagada" : `$${Number(c.monto).toFixed(2)}`;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+      <td>${c.fechaVencimiento || ""}</td>
+      <td>${c.numero}</td>
+      <td>${montoTxt}
+          <button class="btn-editar-cuota" data-numero="${
+            c.numero
+          }">Editar</button>
+      </td>
+      <td>${fechaCancelacionTxt}</td>
+      <td>${pagosHtml}</td>
+    `;
+      tb.appendChild(tr);
+    });
+  }
+
+  // ===== Click en Ver (usa data-pos y data-global) =====
+  document.addEventListener("click", (e) => {
+    if (!e.target.classList.contains("btn-ver-detalle")) return;
+    const pos = parseInt(e.target.getAttribute("data-pos"));
+    const g = parseInt(e.target.getAttribute("data-global"));
+    if (Number.isNaN(pos) || !ventasCliente[pos]) {
+      console.warn("Índice inválido:", pos);
+      return;
     }
+    ventaSel = ventasCliente[pos].venta;
+    idxGlobal = g;
+    renderDetalle();
+  });
 
-    document.getElementById("nombreCliente").innerText = `${cliente.nombre} ${cliente.apellido}`;
-
-    const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-    const nombreCompleto = `${cliente.nombre} ${cliente.apellido}`;
-    const ventasCliente = ventas.filter(v => v.cliente === nombreCompleto);
-    const tabla = document.getElementById("tabla-compras");
-    ventasCliente.forEach((venta, index) => {
-        const fila = document.createElement("tr");
-        
-        const botonDetalle = venta.medioPago === 'credito'
-            ? `<button class="btn-ver-detalle" data-index="${index}">Ver</button>`
-            : 'Sin cuotas';
-        
-
-        fila.innerHTML = `
-            <td>${formatearFecha(venta.fecha)}</td>
-            <td>${venta.producto}</td>
-            <td>${venta.medioPago}</td>
-            <td>$${venta.total}</td>
-            <td>${botonDetalle}></td>
-        `;
-    
-        tabla.appendChild(fila);
-    });
-
-    document.querySelectorAll(".btn-ver-detalle").forEach(boton => {
-        boton.addEventListener("click", function(){
-            const index = this.getAttribute("data-index");
-            const venta = ventasCliente[index];
-
-            document.getElementById("detalle-compra").style.display = "block";
-            document.getElementById("detalle-producto").innerText = venta.producto;
-            document.getElementById("detalle-medio").innerText = venta.medioPago;
-            document.getElementById("detalle-total").innerText = venta.total;
-
-            const tbodyCuotas = document.getElementById("tabla-cuotas");
-            tbodyCuotas.innerHTML = "";
-            venta.cuotas.forEach(cuota => {
-                const filaCuota = document.createElement("tr");
-                filaCuota.innerHTML = `
-                    <td>${cuota.fechaVencimiento}</td>
-                    <td>${cuota.numero}</td>
-                    <td>$${cuota.monto}</td>
-                `;
-                tbodyCuotas.appendChild(filaCuota);
-            });
-        });
-    });
-
-let ventaSeleccionada = null;
-
-document.querySelectorAll(".btn-ver-detalle").forEach(boton => {
-    boton.addEventListener("click", function(){
-        const index = this.getAttribute("data-index");
-        ventaSeleccionada = ventasCliente[index];
-        
-        // Mostrar detalle
-        document.getElementById("detalle-compra").style.display = "block";
-        document.getElementById("seccion-pago").style.display = "block";
-        document.getElementById("saldo-actual").innerText = ventaSeleccionada.total.toFixed(2);
-
-        cargarCuotas(ventaSeleccionada);
-    });
-});
-
-document.getElementById("btn-registrar-pago").addEventListener("click", function(){
-    let monto = parseFloat(document.getElementById("monto-pago").value);
+  // ===== Registrar pago: guarda fecha + importe por cuota =====
+  $("btn-registrar-pago").addEventListener("click", () => {
+    if (!ventaSel) return;
+    let monto = parseFloat($("monto-pago").value);
     if (isNaN(monto) || monto <= 0) return alert("Monto inválido");
 
-    let saldo = ventaSeleccionada.total;
-    saldo -= monto;
+    // 1) Actualizar saldo total
+    let saldo = Number(ventaSel.total || 0) - monto;
     if (saldo < 0) saldo = 0;
-    ventaSeleccionada.total = saldo;
+    ventaSel.total = saldo;
 
-    // Resta en cuotas
-    ventaSeleccionada.cuotas.forEach(cuota => {
-        if (cuota.monto > 0 && monto > 0) {
-            if (monto >= cuota.monto) {
-                monto -= cuota.monto;
-                cuota.monto = 0;
-            } else {
-                cuota.monto -= monto;
-                monto = 0;
-            }
+    // 2) Aplicar a cuotas y registrar pagos
+    const hoy = hoyISO();
+    (ventaSel.cuotas || []).forEach((c) => {
+      if (monto > 0 && Number(c.monto) > 0) {
+        const aplica = Math.min(monto, Number(c.monto));
+        // historial de pagos por cuota
+        if (!Array.isArray(c.pagos)) c.pagos = [];
+        c.pagos.push({ fecha: hoy, monto: aplica });
+
+        c.monto = Number(c.monto) - aplica; // descuenta
+        monto -= aplica;
+
+        if (Number(c.monto) === 0) {
+          c.fechaPago = c.fechaPago || hoy; // marca cancelada
         }
+      }
     });
 
-    // Actualiza saldo
-    document.getElementById("saldo-actual").innerText = saldo.toFixed(2);
-    cargarCuotas(ventaSeleccionada);
+    $("saldo-actual").innerText = saldo.toFixed(2);
+    renderDetalle();
     alert(`Se registró un pago. Saldo actualizado a $${saldo.toFixed(2)}.`);
 
-    // 📝 Actualizar localStorage
-    const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-    const indexVenta = ventas.findIndex(v => v.fecha === ventaSeleccionada.fecha && v.producto === ventaSeleccionada.producto);
-    if (indexVenta !== -1) {
-        ventas[indexVenta] = ventaSeleccionada;
-        localStorage.setItem("ventas", JSON.stringify(ventas));
+    // 3) Persistir por índice global
+    if (idxGlobal >= 0) {
+      const list = JSON.parse(localStorage.getItem("ventas")) || [];
+      list[idxGlobal] = ventaSel;
+      localStorage.setItem("ventas", JSON.stringify(list));
     }
-});
+  });
 
-function cargarCuotas(venta){
-    const tbody = document.getElementById("tabla-cuotas");
-    tbody.innerHTML = "";
-    venta.cuotas.forEach(cuota => {
-        const fila = document.createElement("tr");
-        fila.innerHTML = `
-            <td>${cuota.fechaVencimiento}</td>
-            <td>${cuota.numero}</td>
-            <td>${cuota.monto <= 0 
-            ? 'Pagada <button class="btn-editar-cuota" data-numero="' + cuota.numero + '">Editar</button>'
-            : `$${cuota.monto.toFixed(2)} <button class="btn-editar-cuota" data-numero=${cuota.numero}">Editar</button>`
-            }
-            </td>
-        `;
-        tbody.appendChild(fila);
-    });
-}
+  // ===== Editar cuota =====
+  let cuotaSel = null;
+  document.addEventListener("click", (e) => {
+    if (!e.target.classList.contains("btn-editar-cuota")) return;
+    if (!ventaSel) return;
+    const n = parseInt(e.target.getAttribute("data-numero"));
+    cuotaSel = (ventaSel.cuotas || []).find((c) => c.numero === n);
+    if (!cuotaSel) return;
 
-let cuotaSeleccionada = null;
-
-document.addEventListener("click", function (e){
-    if (e.target.classList.contains("btn-editar-cuota")) {
-        const numCuota = parseInt(e.target.getAttribute("data-numero"));
-        cuotaSeleccionada = ventaSeleccionada.cuotas.find(c => c.numero === numCuota);
-       
-       if (cuotaSeleccionada.monto <= 0) {
-        const confirmar = confirm("Esta cuota figura como pagada. ¿Querés editarla?");
-        if (!confirmar) return;
-       }
-       
-        document.getElementById("nuevo-monto-cuota").value = cuotaSeleccionada.monto.toFixed(2);
-        document.getElementById("modal-editar-cuota").style.display = "block";
+    if (
+      Number(cuotaSel.monto) <= 0 &&
+      !confirm("Esta cuota figura como pagada. ¿Querés editarla?")
+    ) {
+      return;
     }
-});
+    $("nuevo-monto-cuota").value = Number(cuotaSel.monto || 0).toFixed(2);
+    $("modal-editar-cuota").style.display = "block";
+  });
 
-document.getElementById("btn-guardar-cuota").addEventListener("click", function () {
-    const nuevoMonto = parseFloat(document.getElementById("nuevo-monto-cuota").value);
-    if (isNaN(nuevoMonto) || nuevoMonto < 0) {
-        alert("Monto invalido");
-        return;
+  $("btn-guardar-cuota").addEventListener("click", () => {
+    const nuevo = parseFloat($("nuevo-monto-cuota").value);
+    if (isNaN(nuevo) || nuevo < 0) return alert("Monto invalido");
+    if (cuotaSel) {
+      cuotaSel.monto = nuevo;
+      if (nuevo > 0) delete cuotaSel.fechaPago; // reabierta → sin fechaPago
+      // Nota: mantenemos el historial c.pagos tal como está
     }
-
-    cuotaSeleccionada.monto = nuevoMonto;
-
-    //Actualizar el localStorage
-    const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-    const indexVenta = ventas.findIndex(v => v.fecha === ventaSeleccionada.fecha && v.producto === ventaSeleccionada.producto);
-    if (indexVenta !== -1) {
-       ventas[indexVenta] = ventaSeleccionada;
-       localStorage.setItem("ventas", JSON.stringify(ventas));
+    if (idxGlobal >= 0) {
+      const list = JSON.parse(localStorage.getItem("ventas")) || [];
+      list[idxGlobal] = ventaSel;
+      localStorage.setItem("ventas", JSON.stringify(list));
     }
-
-    cargarCuotas(ventaSeleccionada);
-    document.getElementById("modal-editar-cuota").style.display = "none";
-
-
-
-
-
+    renderDetalle();
+    $("modal-editar-cuota").style.display = "none";
+  });
 });
-
-
-
-
-});
-

@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Registrar Ventas</title>
     <link rel="stylesheet" href="assets/css/style.css" />
-        <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
-
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div class="container">
@@ -45,8 +47,8 @@
             ></p>
 
             <label for="fecha">Fecha de Venta:</label>
-            <input type="date" id="fecha" name="fecha" required />                                     
-                        
+            <input type="date" id="fecha" name="fecha" required />
+
             <label for="cantidad">Cantidad:</label>
             <input
               type="number"
@@ -102,7 +104,6 @@
               <option value="efectivo">Efectivo</option>
               <option value="credito">Credito</option>
             </select>
-            
 
             <div id="seccion-cuotas" style="display: none">
               <label for="entregaInicial">Entrega Inicial</label>
@@ -110,13 +111,12 @@
 
               <label for="cuotas">Cantidad de Cuotas:</label>
               <input type="number" id="cuotas" name="cuotas" min="1" max="5" />
-    
+
               <div id="fechas-cuotas"></div>
               <div id="info-cuotas"></div>
 
               <label for="interes">Interés (%):</label>
-<input type="number" id="interes" min="0" value="0">
-
+              <input type="number" id="interes" min="0" value="0" />
             </div>
 
             <div class="botones">
@@ -134,6 +134,6 @@
     </footer>
 
     <!-- Cache-busting para asegurar que cargue el JS nuevo -->
-    <script src="assets/js/scrpts-registrarVenta.js?v=carrito3"></script>
+    <script src="assets/js/scrpts-registrarVenta.js?v=fechas1"></script>
   </body>
 </html>

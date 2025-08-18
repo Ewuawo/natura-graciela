@@ -1,369 +1,376 @@
-// assets/js/scrpts-registrarVenta.js
-document.addEventListener("DOMContentLoaded", function () {
-  // ====== Utils Storage ======
-  const getProductos = () =>
-    JSON.parse(localStorage.getItem("listaProductos")) || [];
-  const setProductos = (arr) =>
-    localStorage.setItem("listaProductos", JSON.stringify(arr));
+/* ──────────────────────────────────────────────────────────────
+   Registrar Venta - FRONTEND
+   - Carga clientes y productos desde el backend
+   - Carrito con validaciones de IDs/cantidades/precios
+   - Cuotas (si medio de pago = crédito)
+   - Envío a POST /ventas con payload consistente
+   ────────────────────────────────────────────────────────────── */
 
-  // ====== Carga de selects ======
-  function cargarSelectClientes() {
-    const clientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
-    const sel = document.getElementById("cliente");
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Seleccionar Cliente</option>';
-    clientes.forEach((c) => {
-      const o = document.createElement("option");
-      o.value = `${c.nombre} ${c.apellido}`;
-      o.textContent = `${c.nombre} ${c.apellido}`;
-      sel.appendChild(o);
-    });
+const API = "http://localhost:3000";
+
+const ui = {
+  selCliente: document.getElementById("cliente"),
+  selProducto: document.getElementById("producto"),
+  pDetalle: document.getElementById("detalleProducto"),
+  inpFecha: document.getElementById("fecha"),
+  inpCantidad: document.getElementById("cantidad"),
+  inpPCosto: document.getElementById("pCosto"),
+  inpPVenta: document.getElementById("pVenta"),
+  btnAgregarItem: document.getElementById("agregarItem"),
+  tbodyItems: document.querySelector("#tablaItems tbody"),
+  lblTotal: document.getElementById("totalVenta"),
+  selMedioPago: document.getElementById("medioPago"),
+  boxCuotas: document.getElementById("seccion-cuotas"),
+  inpEntrega: document.getElementById("entregaInicial"),
+  inpCuotas: document.getElementById("cuotas"),
+  divFechasCuotas: document.getElementById("fechas-cuotas"),
+  divInfoCuotas: document.getElementById("info-cuotas"),
+  form: document.getElementById("registrarVenta"),
+};
+
+let clientes = [];
+let productos = [];
+let carrito = []; // [{productoId, nombre, cantidad, precioUnitario, subtotal}]
+
+/* ──────────────────────────────────────────────────────────────
+   Utilidades
+   ────────────────────────────────────────────────────────────── */
+const fmtMoney = (n) =>
+  Number(n || 0)
+    .toFixed(2)
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+const hoyISO = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+};
+
+function alerta(msg) {
+  alert(msg);
 }
 
-  // Muestra cada nombre 1 sola vez (aunque haya varios lotes)
-  function cargarSelectProductos() {
-    const sel = document.getElementById("producto");
-    if (!sel) return;
-    const prods = getProductos();
-    sel.innerHTML = '<option value="">Seleccionar Producto</option>';
-    [...new Set(prods.map((p) => p.nombre))].forEach((nombre) => {
-      const o = document.createElement("option");
-      o.value = nombre;
-      o.textContent = nombre;
-      sel.appendChild(o);
-    });
+/* ──────────────────────────────────────────────────────────────
+   Carga inicial de clientes y productos
+   ────────────────────────────────────────────────────────────── */
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${r.status}`);
+  return r.json();
 }
 
-  cargarSelectClientes();
-  cargarSelectProductos();
-  const fechaEl = document.getElementById("fecha");
-  if (fechaEl) fechaEl.valueAsDate = new Date();
+async function cargarCombos() {
+  try {
+    const [cli, prods] = await Promise.all([
+      getJSON(`${API}/clientes`),
+      getJSON(`${API}/productos`),
+    ]);
 
-  // ====== FEFO helpers ======
-  // lotes por nombre con cantidad > 0, ordenados por vencimiento asc
-  function lotesPorNombre(nombre) {
-    return getProductos()
-      .map((p, idx) => ({ ...p, __idx: idx }))
-      .filter((p) => p.nombre === nombre && (parseInt(p.cantidad) || 0) > 0)
-      .sort((a, b) => (a.vencimiento || "").localeCompare(b.vencimiento || ""));
+    clientes = Array.isArray(cli) ? cli : [];
+    productos = Array.isArray(prods) ? prods : [];
+
+    // Cliente
+    ui.selCliente.innerHTML =
+      `<option value="">-- Seleccionar --</option>` +
+      clientes
+        .map(
+          (c) =>
+            `<option value="${c.id}">${c.nombreCompleto || c.nombre}</option>`
+        )
+        .join("");
+
+    // Producto
+    ui.selProducto.innerHTML =
+      `<option value="">-- Seleccionar --</option>` +
+      productos
+        .map(
+          (p) =>
+            `<option value="${p.id}" data-pcosto="${p.pCosto}" data-pventa="${p.pVenta}">
+              ${p.nombre}
+             </option>`
+        )
+        .join("");
+
+    ui.inpFecha.value = hoyISO();
+  } catch (e) {
+    // si falla, mostramos un aviso «amigable»
+    alerta(
+      "No pude cargar clientes/productos. Revisá que el backend esté corriendo."
+    );
+    // opcional: pegamos una consulta al diag para saber columnas
+    try {
+      await fetch(`${API}/ventas/_diag`);
+    } catch {}
   }
-  function loteMasProximo(nombre) {
-    const lotes = lotesPorNombre(nombre);
-    return lotes.length ? lotes[0] : null;
-  }
-  function stockTotalNombre(nombre) {
-    return getProductos()
-      .filter((p) => p.nombre === nombre)
-      .reduce((acc, p) => acc + (parseInt(p.cantidad) || 0), 0);
-  }
-
-  // ====== Estado de línea y carrito ======
-  let precioCostoUnitario = 0;
-  let precioVentaUnitario = 0;
-
-  const items = []; // { producto, cantidad, pCostoUnit, pVentaUnit }
-  const tablaBody = document.querySelector("#tablaItems tbody");
-  const totalVentaEl = document.getElementById("totalVenta");
-
-  // stock disponible = total por nombre - lo reservado en carrito
-  function stockDisponible(nombre) {
-    const reservado = items
-      .filter((i) => i.producto === nombre)
-      .reduce((acc, i) => acc + i.cantidad, 0);
-    return stockTotalNombre(nombre) - reservado;
-  }
-
-  // ====== Refs UI línea ======
-  const selProducto = document.getElementById("producto");
-  const inpCantidad = document.getElementById("cantidad");
-  const inpPCosto = document.getElementById("pCosto");
-  const inpPVenta = document.getElementById("pVenta");
-  const detalleEl = document.getElementById("detalleProducto");
-
-  if (selProducto) {
-    selProducto.addEventListener("change", function () {
-      const nombre = this.value;
-      const lote = loteMasProximo(nombre); // FEFO: se sugiere el que se usará primero
-
-      if (lote) {
-        precioCostoUnitario = parseFloat(lote.pCosto) || 0;
-        precioVentaUnitario = parseFloat(lote.pVenta) || 0;
-        if (inpPCosto) inpPCosto.value = precioCostoUnitario.toFixed(2);
-        if (inpPVenta) inpPVenta.value = precioVentaUnitario.toFixed(2);
-        if (detalleEl)
-          detalleEl.textContent = `${lote.detalle || ""} — Vence: ${
-            lote.vencimiento || "N/D"
-          }`;
-      } else {
-        precioCostoUnitario = precioVentaUnitario = 0;
-        if (inpPCosto) inpPCosto.value = "";
-        if (inpPVenta) inpPVenta.value = "";
-        if (detalleEl) detalleEl.textContent = "";
-      }
-      actualizarTotalesLinea();
-    });
-  }
-
-  if (inpCantidad) {
-    inpCantidad.addEventListener("input", function () {
-      const cant = parseInt(this.value) || 0;
-      const nombre = selProducto.value;
-      const disp = stockDisponible(nombre);
-      if (cant > disp) {
-        alert(
-          `❌ Stock insuficiente. Solo hay ${disp} unidades disponibles de "${nombre}".`
-        );
-        this.value = "";
-      }
-      actualizarTotalesLinea();
-    });
-  }
-
-  function actualizarTotalesLinea() {
-    const cantidad = parseInt(inpCantidad?.value) || 0;
-    if (inpPCosto)
-      inpPCosto.value = (cantidad * precioCostoUnitario).toFixed(2);
-    if (inpPVenta)
-      inpPVenta.value = (cantidad * precioVentaUnitario).toFixed(2);
-    actualizarFechasyCuotas();
-  }
-
-  // ====== Carrito ======
-  function totalVentaActual() {
-    return items.reduce((acc, it) => acc + it.cantidad * it.pVentaUnit, 0);
-  }
-
-  function renderItems() {
-    if (!tablaBody) return;
-    tablaBody.innerHTML = "";
-    items.forEach((it, idx) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${it.producto}</td>
-        <td style="text-align:right;">${it.cantidad}</td>
-        <td style="text-align:right;">${it.pVentaUnit.toFixed(2)}</td>
-        <td style="text-align:right;">${(it.cantidad * it.pVentaUnit).toFixed(
-          2
-        )}</td>
-        <td><button type="button" data-i="${idx}" class="quitar">Quitar</button></td>
-      `;
-      tablaBody.appendChild(tr);
-    });
 }
 
-    if (totalVentaEl) totalVentaEl.textContent = totalVentaActual().toFixed(2);
-
-    tablaBody.querySelectorAll(".quitar").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const i = parseInt(e.currentTarget.getAttribute("data-i"));
-        items.splice(i, 1);
-        renderItems();
-        actualizarTotalesLinea();
-        actualizarFechasyCuotas();
-      });
-    });
+/* ──────────────────────────────────────────────────────────────
+   Manejo de producto seleccionado => autollenado de precios
+   ────────────────────────────────────────────────────────────── */
+ui.selProducto.addEventListener("change", () => {
+  const idSel = parseInt(ui.selProducto.value, 10);
+  const prod = productos.find((x) => x.id === idSel);
+  if (!prod) {
+    ui.pDetalle.textContent = "";
+    ui.inpPCosto.value = "";
+    ui.inpPVenta.value = "";
+    return;
   }
-
-  const btnAgregarItem = document.getElementById("agregarItem");
-  if (btnAgregarItem) {
-    btnAgregarItem.addEventListener("click", function () {
-      const nombre = selProducto.value;
-      const cantidad = parseInt(inpCantidad.value) || 0;
-
-      if (!nombre) return alert("Elegí un producto.");
-      if (cantidad <= 0) return alert("Ingresá una cantidad válida.");
-
-      const disp = stockDisponible(nombre);
-      if (cantidad > disp) {
-        return alert(
-          `❌ Stock insuficiente. Solo hay ${disp} unidades disponibles de "${nombre}".`
-        );
-      }
-
-      // Precio sugerido desde el lote que se usará primero
-      const lote = loteMasProximo(nombre);
-      items.push({
-        producto: nombre,
-        cantidad,
-        pCostoUnit: parseFloat(lote?.pCosto) || 0,
-        pVentaUnit: parseFloat(lote?.pVenta) || 0,
-      });
-
-      // limpiar línea
-      selProducto.value = "";
-      inpCantidad.value = "";
-      if (inpPCosto) inpPCosto.value = "";
-      if (inpPVenta) inpPVenta.value = "";
-      if (detalleEl) detalleEl.textContent = "";
-      precioCostoUnitario = precioVentaUnitario = 0;
-
-      renderItems();
-      actualizarFechasyCuotas();
-    });
-  }
-
-  // ====== Medio de pago / cuotas ======
-  const medioPago = document.getElementById("medioPago");
-  const seccionCuotas = document.getElementById("seccion-cuotas");
-  if (medioPago && seccionCuotas) {
-    medioPago.addEventListener("change", function () {
-      seccionCuotas.style.display = this.value === "credito" ? "block" : "none";
-      actualizarFechasyCuotas();
-    });
-  }
-
-  function actualizarFechasyCuotas() {
-    const cuotas = parseInt(document.getElementById("cuotas")?.value) || 0;
-    const cantidad = parseInt(document.getElementById("cantidad")?.value) || 0;
-    const entrega = parseFloat(document.getElementById("entregaInicial")?.value) || 0;
-    const interes = parseFloat(document.getElementById("interes")?.value) || 0;
-
-    const saldo = (cantidad * precioVentaUnitario) - entrega;
-    const saldoInteres = saldo * (1 + interes / 100);
-    const cuota = cuotas > 0 ? (saldoInteres / cuotas).toFixed(2) : 0;
-
-    const infoCuotas = document.getElementById("info-cuotas");
-    if(infoCuotas){
-        infoCuotas.innerHTML = `Saldo con interés: $${saldoInteres.toFixed(2)} | Monto por cuota: $${cuota}`;
-    }
-
-    const contenedorFechas = document.getElementById("fechas-cuotas");
-    if(contenedorFechas){
-        contenedorFechas.innerHTML = "";
-        for (let i = 0; i < cuotas; i++) {
-            contenedorFechas.innerHTML += `<label>Fecha cuota ${i+1}</label>
-            <input type="date" required><br>
-            <p>Cuota ${i+1}: $${cuota}</p>`;
-        }
-    }
-}
-
-  ["cuotas", "entregaInicial", "interes"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("input", actualizarFechasyCuotas);
-  });
-
-  // ====== Submit: validación + descuento FEFO por lotes ======
-  const formulario = document.getElementById("registrarVenta");
-  if (formulario) {
-    formulario.addEventListener("submit", function (event) {
-      event.preventDefault();
-
-const formulario = document.getElementById("registrarVenta");
-if (formulario) {
-    formulario.addEventListener("submit", function(event){
-        event.preventDefault();
-        const productos = JSON.parse(localStorage.getItem("listaProductos")) || [];
-        const nombreProducto = document.getElementById("producto").value;
-        const cantidad = parseInt(document.getElementById("cantidad").value) || 0;
-
-      // Validación final: suma por nombre vs stock total de todos los lotes
-      const prodsNow = getProductos();
-      for (const it of items) {
-        const disponibleTotal = prodsNow
-          .filter((p) => p.nombre === it.producto)
-          .reduce((a, p) => a + (parseInt(p.cantidad) || 0), 0);
-
-        const requeridoTotal = items
-          .filter((x) => x.producto === it.producto)
-          .reduce((a, b) => a + b.cantidad, 0);
-
-        if (requeridoTotal > disponibleTotal) {
-          alert(
-            `❌ Stock insuficiente de "${it.producto}". Disponible: ${disponibleTotal}.`
-          );
-          return;
-        }
-      }
-
-      // Descuento FEFO por producto
-      let lista = getProductos();
-      for (const it of items) {
-        let restar = it.cantidad;
-        const lotes = lista
-          .map((p, idx) => ({ ...p, __idx: idx }))
-          .filter(
-            (p) => p.nombre === it.producto && (parseInt(p.cantidad) || 0) > 0
-          )
-          .sort((a, b) =>
-            (a.vencimiento || "").localeCompare(b.vencimiento || "")
-          );
-
-        for (const lote of lotes) {
-          if (restar <= 0) break;
-          const cantLote = parseInt(lote.cantidad) || 0;
-          const aDescontar = Math.min(restar, cantLote);
-          lista[lote.__idx].cantidad = cantLote - aDescontar;
-          restar -= aDescontar;
-        }
-
-        if (restar > 0) {
-          alert(
-            `❌ No se pudo descontar todo el stock de "${it.producto}". Faltan ${restar}.`
-          );
-          return;
-        }
-      }
-      setProductos(lista);
-
-      // Armar venta
-      const ventas = JSON.parse(localStorage.getItem("ventas") || "[]");
-      let cuotasDetalle = [];
-      if (document.getElementById("medioPago").value === "credito") {
-        const cuotasCantidad =
-          parseInt(document.getElementById("cuotas").value) || 0;
-        const interes =
-          parseFloat(document.getElementById("interes").value) || 0;
-        const entrega =
-          parseFloat(document.getElementById("entregaInicial").value) || 0;
-
-        const total = totalVentaActual();
-        const saldo = Math.max(total - entrega, 0);
-        const saldoConInteres = saldo * (1 + interes / 100);
-        const montoPorCuota =
-          cuotasCantidad > 0
-            ? (saldoConInteres / cuotasCantidad).toFixed(2)
-            : 0;
-
-        const fechasCuotas = document.querySelectorAll(
-          "#fechas-cuotas input[type='date']"
-        );
-        fechasCuotas.forEach((input, index) => {
-          cuotasDetalle.push({
-            numero: index + 1,
-            fechaVencimiento: input.value,
-            monto: parseFloat(montoPorCuota),
-          });
-        });
-      }
-
-      const nuevaVenta = {
-        cliente: document.getElementById("cliente").value,
-        fecha: document.getElementById("fecha").value,
-        medioPago: document.getElementById("medioPago").value,
-        items: items.map((it) => ({
-          producto: it.producto,
-          cantidad: it.cantidad,
-          precioUnitario: it.pVentaUnit,
-          subtotal: parseFloat((it.cantidad * it.pVentaUnit).toFixed(2)),
-        })),
-        total: parseFloat(totalVentaActual().toFixed(2)),
-        cuotas: cuotasDetalle,
-      };
-
-      ventas.push(nuevaVenta);
-      localStorage.setItem("ventas", JSON.stringify(ventas));
-
-      alert("✅ Venta registrada y stock actualizado por FEFO.");
-      this.reset();
-
-      // limpiar carrito y UI
-      items.splice(0, items.length);
-      renderItems();
-      actualizarFechasyCuotas();
-      cargarSelectProductos();
-      if (detalleEl) detalleEl.textContent = "";
-      if (fechaEl) fechaEl.valueAsDate = new Date();
-    });
-}
+  ui.pDetalle.textContent = prod.detalle ? `Detalle: ${prod.detalle}` : "";
+  ui.inpPCosto.value =
+    ui.selProducto.options[ui.selProducto.selectedIndex].dataset.pcosto || "";
+  ui.inpPVenta.value =
+    ui.selProducto.options[ui.selProducto.selectedIndex].dataset.pventa || "";
 });
+
+/* ──────────────────────────────────────────────────────────────
+   Agregar item al carrito (validando TODO)
+   ────────────────────────────────────────────────────────────── */
+ui.btnAgregarItem.addEventListener("click", () => {
+  const productoId = parseInt(ui.selProducto.value, 10);
+  const prod = productos.find((p) => p.id === productoId);
+
+  if (!productoId || !prod) {
+    return alerta("Seleccioná un producto válido.");
+  }
+
+  const cantidad = parseInt(ui.inpCantidad.value, 10);
+  if (!Number.isInteger(cantidad) || cantidad < 1) {
+    return alerta("Cantidad inválida");
+  }
+
+  const precioUnitario = Number(ui.inpPVenta.value || 0);
+  if (!(precioUnitario > 0)) {
+    return alerta("Ingresá un precio de venta válido (> 0).");
+  }
+
+  // Aseguramos ID de item igual al producto seleccionado
+  // y no mezclamos productos iguales (sumamos cantidades)
+  const existente = carrito.find((it) => it.productoId === productoId);
+  if (existente) {
+    existente.cantidad += cantidad;
+    existente.precioUnitario = precioUnitario; // última referencia
+    existente.subtotal = existente.cantidad * existente.precioUnitario;
+  } else {
+    carrito.push({
+      productoId,
+      nombre: prod.nombre,
+      cantidad,
+      precioUnitario,
+      subtotal: cantidad * precioUnitario,
+    });
+  }
+
+  // limpiamos campos rápidos
+  ui.inpCantidad.value = "";
+  ui.inpPVenta.value = prod.pVenta || ui.inpPVenta.value;
+
+  renderCarrito();
+});
+
+function renderCarrito() {
+  ui.tbodyItems.innerHTML = "";
+  let total = 0;
+  carrito.forEach((it, idx) => {
+    total += it.subtotal;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${it.nombre}</td>
+      <td style="text-align:right">${it.cantidad}</td>
+      <td style="text-align:right">$ ${fmtMoney(it.precioUnitario)}</td>
+      <td style="text-align:right">$ ${fmtMoney(it.subtotal)}</td>
+      <td style="text-align:right">
+        <button type="button" data-i="${idx}" class="btn-del">Quitar</button>
+      </td>
+    `;
+    ui.tbodyItems.appendChild(tr);
+  });
+  ui.lblTotal.textContent = fmtMoney(total);
+
+  // botones quitar
+  ui.tbodyItems.querySelectorAll(".btn-del").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      const i = parseInt(e.currentTarget.dataset.i, 10);
+      carrito.splice(i, 1);
+      renderCarrito();
+    })
+  );
+
+  actualizarInfoCuotas();
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Medio de pago / cuotas
+   ────────────────────────────────────────────────────────────── */
+ui.selMedioPago.addEventListener("change", () => {
+  const esCredito = ui.selMedioPago.value === "credito";
+  ui.boxCuotas.style.display = esCredito ? "block" : "none";
+  if (!esCredito) {
+    ui.inpEntrega.value = 0;
+    ui.inpCuotas.value = "";
+    ui.divFechasCuotas.innerHTML = "";
+    ui.divInfoCuotas.innerHTML = "";
+  }
+  actualizarInfoCuotas();
+});
+
+ui.inpCuotas?.addEventListener("input", generarFechasCuotas);
+ui.inpEntrega?.addEventListener("input", actualizarInfoCuotas);
+document
+  .getElementById("interes")
+  ?.addEventListener("input", actualizarInfoCuotas);
+
+function generarFechasCuotas() {
+  const n = parseInt(ui.inpCuotas.value, 10);
+  ui.divFechasCuotas.innerHTML = "";
+  if (!Number.isInteger(n) || n < 1 || n > 60) return;
+
+  const base = new Date(ui.inpFecha.value || hoyISO());
+  for (let i = 1; i <= n; i++) {
+    const d = new Date(base);
+    d.setMonth(d.getMonth() + i);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    const iso = d.toISOString().slice(0, 10);
+
+    const row = document.createElement("div");
+    row.style.margin = "4px 0";
+    row.innerHTML = `
+      <label>Venc. #${i}:</label>
+      <input type="date" class="vto" value="${iso}" />
+    `;
+    ui.divFechasCuotas.appendChild(row);
+  }
+  actualizarInfoCuotas();
+}
+
+function totalVenta() {
+  return carrito.reduce((acc, it) => acc + it.subtotal, 0);
+}
+
+function actualizarInfoCuotas() {
+  ui.divInfoCuotas.innerHTML = "";
+  if (ui.selMedioPago.value !== "credito") return;
+  if (!carrito.length) return;
+
+  const total = totalVenta();
+  const entrega = Number(ui.inpEntrega.value || 0);
+  const interesPct = Number(document.getElementById("interes").value || 0);
+  const n = parseInt(ui.inpCuotas.value, 10);
+
+  if (!Number.isInteger(n) || n < 1) return;
+
+  const base = Math.max(total - entrega, 0);
+  const totalFinanciado = base * (1 + interesPct / 100);
+  const cuota = totalFinanciado / n;
+
+  const p = document.createElement("p");
+  p.innerHTML = `
+    A financiar: $ ${fmtMoney(base)}<br>
+    Interés: ${interesPct}% &nbsp;|&nbsp; Total financiado: $ ${fmtMoney(
+    totalFinanciado
+  )}<br>
+    ${n} cuota(s) de $ ${fmtMoney(cuota)}
+  `;
+  ui.divInfoCuotas.appendChild(p);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Submit del formulario
+   ────────────────────────────────────────────────────────────── */
+ui.form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const clienteId = parseInt(ui.selCliente.value, 10);
+  if (!clienteId) return alerta("Seleccioná un cliente.");
+
+  if (!carrito.length) return alerta("Agregá al menos un ítem a la venta.");
+
+  // Validación fuerte de carrito (IDs/cantidades/precios)
+  for (const it of carrito) {
+    const prod = productos.find((p) => p.id === it.productoId);
+    if (!prod) {
+      return alerta(
+        `El producto con id=${it.productoId} no existe. Refrescá la página.`
+      );
+    }
+    if (!Number.isInteger(it.cantidad) || it.cantidad < 1) {
+      return alerta(`Cantidad inválida para "${it.nombre}".`);
+    }
+    if (!(it.precioUnitario > 0)) {
+      return alerta(`Precio unitario inválido para "${it.nombre}".`);
+    }
+  }
+
+  const fecha = ui.inpFecha.value || hoyISO();
+  const total = totalVenta();
+
+  const esCredito = ui.selMedioPago.value === "credito";
+  let entregaInicial = 0;
+  let interesPct = 0;
+  let cuotas = [];
+
+  if (esCredito) {
+    entregaInicial = Number(ui.inpEntrega.value || 0);
+    interesPct = Number(document.getElementById("interes").value || 0);
+
+    const n = parseInt(ui.inpCuotas.value, 10);
+    if (!Number.isInteger(n) || n < 1) {
+      return alerta("Ingresá la cantidad de cuotas.");
+    }
+    const vtos = [...ui.divFechasCuotas.querySelectorAll("input.vto")].map(
+      (i) => i.value
+    );
+    if (vtos.length !== n) {
+      return alerta("Completá las fechas de vencimiento de las cuotas.");
+    }
+
+    const base = Math.max(total - entregaInicial, 0);
+    const totalFinanciado = base * (1 + interesPct / 100);
+    const cuotaMonto = totalFinanciado / n;
+
+    cuotas = vtos.map((v, i) => ({
+      nro: i + 1,
+      monto: cuotaMonto,
+      vencimiento: v,
+    }));
+  }
+
+  const payload = {
+    clienteId,
+    fecha,
+    esCredito,
+    entregaInicial,
+    interesPct,
+    items: carrito.map((x) => ({
+      productoId: x.productoId,
+      cantidad: x.cantidad,
+      precioUnitario: x.precioUnitario,
+    })),
+    cuotas,
+  };
+
+  try {
+    const r = await fetch(`${API}/ventas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err?.error || `Error HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    alert(`Venta #${data.ventaId} registrada correctamente.`);
+    // limpiar y/o navegar a ventas
+    carrito = [];
+    renderCarrito();
+    window.location.href = "ventas.html";
+  } catch (e2) {
+    alerta(`Error al registrar la venta\n\n${e2.message}`);
+  }
+});
+
+/* ──────────────────────────────────────────────────────────────
+   Init
+   ────────────────────────────────────────────────────────────── */
+cargarCombos();

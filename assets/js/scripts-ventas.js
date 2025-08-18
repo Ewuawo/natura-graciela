@@ -1,138 +1,147 @@
-document.addEventListener("DOMContentLoaded", function() {
+// assets/js/scripts-ventas.js
+document.addEventListener("DOMContentLoaded", () => {
+  const API = "http://localhost:3000";
+  const tbody =
+    document.getElementById("tabla-ventas") || document.querySelector("tbody");
+  const inputBuscar =
+    document.getElementById("buscar") ||
+    document.querySelector('input[placeholder*="Buscar"]');
 
-     // Precargar la fecha actual
-    if (document.getElementById("fecha")) {
-        document.getElementById("fecha").valueAsDate = new Date();
-    }
-    
-      window.editarVenta = function(index) {
-        const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-        const venta = ventas[index];
-        localStorage.setItem("ventaEditar", JSON.stringify(venta));
-        localStorage.setItem("indiceEditar", index);
-        location.href = "editarVentas.html"; // Redirige a la página de edición de ventas
-    };
-
-
-    //Listar Ventas
-    if (document.getElementById("ventas-tabla")) {
-        const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-        
-
-        function mostrarVentas(lista) {
-            const tabla = document.getElementById("ventas-tabla");
-            tabla.innerHTML = "";
-
-            lista.forEach((venta, index) => {
-                const fila = tabla.insertRow();
-            fila.insertCell(0).textContent = index + 1;
-            fila.insertCell(1).textContent = venta.cliente;
-            fila.insertCell(2).textContent = venta.producto;
-            fila.insertCell(3).textContent = venta.fecha;
-            fila.insertCell(4).textContent = venta.medioPago;
-            fila.insertCell(5).textContent = venta.cantidad;
-            fila.insertCell(6).textContent = venta.precio.toFixed(2);
-            fila.insertCell(7).textContent = venta.total.toFixed(2);
-
-            const acciones = fila.insertCell(8);
-
-            const btnEditar = document.createElement("button");
-            btnEditar.textContent = "Editar";
-            btnEditar.className = "btn btn-primary btn-sm";
-            btnEditar.addEventListener("click", function() {
-                window.editarVenta(index);
-            });
-        
-            acciones.appendChild(btnEditar);
-            const btnEliminar = document.createElement("button");
-            btnEliminar.textContent = "Eliminar";   
-            btnEliminar.className = "boton-eliminar";
-            btnEliminar.addEventListener("click", function() {
-                if (confirm("¿Estás seguro de que deseas eliminar esta venta?")) {
-                    let ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-                    ventas.splice(index, 1);
-                    localStorage.setItem("ventas", JSON.stringify(ventas));
-                    location.reload(); // Recargar la página para actualizar la tabla
-                }
-            });
-            acciones.appendChild(btnEliminar);
-            
-
-        });
-    }
-
-    mostrarVentas(ventas);
-
-    document.getElementById("buscar").addEventListener("input", function(){
-        const filtro = this.value.toLowerCase();
-        const ventasFiltradas = ventas.filter(venta => venta.cliente.toLowerCase().includes(filtro));
-        mostrarVentas(ventasFiltradas);
+  const money = (v) =>
+    Number(v ?? 0).toLocaleString("es-AR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
-}
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("es-AR") : "—");
 
-  
-
-
-    
-
-
-  
-
-    //Editar Venta
-    if (document.getElementById("eVenta")) {
-        const venta = JSON.parse(localStorage.getItem("ventaEditar"));
-        if (venta) {
-            document.getElementById("cliente").value = venta.cliente;
-            document.getElementById("producto").value = venta.producto;
-            document.getElementById("fecha").value = venta.fecha;
-            document.getElementById("medioPago").value = venta.medioPago;
-            document.getElementById("cantidad").value = venta.cantidad;
-            document.getElementById("pCosto").value = venta.pCosto;
-            document.getElementById("pVenta").value = venta.pVenta;
-        }
-
-        document.getElementById("eVenta").addEventListener("submit", function (event) {
-            event.preventDefault();
-
-            const cliente = document.getElementById("cliente").value;
-            const producto = document.getElementById("producto").value;
-            const fecha = document.getElementById("fecha").value;
-            const medioPago = document.getElementById("medioPago").value;
-            const cantidad = document.getElementById("cantidad").value;
-            const pCosto = parseFloat(document.getElementById("pCosto").value);
-            const pVenta = parseFloat(document.getElementById("pVenta").value);
-            const total = cantidad * pVenta;
-
-            if (!cliente || !producto || !fecha || !medioPago || !cantidad || isNaN(pCosto) || isNaN(pVenta)) {
-                alert("Por favor, completa todos los campos correctamente.");
-                return;
-            }
-
-            const indiceEditar = localStorage.getItem("indiceEditar");
-            let ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-            ventas[indiceEditar] = {
-                cliente: cliente,
-                producto: producto,
-                fecha: fecha,
-                medioPago: medioPago,
-                cantidad: cantidad,
-                pCosto: pCosto,
-                pVenta: pVenta,
-                total: total
-            };
-            localStorage.setItem("ventas", JSON.stringify(ventas));
-
-            alert("Venta actualizada correctamente.");
-            location.href = "ventas.html"; // Redirige a la página de ventas
-        });
-    }
-                if (document.getElementById("eVenta")) {
-    document
-      .getElementById("eVenta")
-      .addEventListener("reset", function (event) {
-        event.preventDefault();
-        location.href = "ventas.html"; // Redirigir a la página de productos
-      });
+  async function getJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`${r.status} ${url}`);
+    return r.json();
   }
 
+  async function cargarVentas() {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center">Cargando...</td></tr>`;
+    try {
+      let ventas = await getJSON(`${API}/ventas`);
+      const f = (inputBuscar?.value || "").toLowerCase();
+      if (f)
+        ventas = ventas.filter((v) =>
+          String(v.nombreCompleto || "")
+            .toLowerCase()
+            .includes(f)
+        );
+
+      const rows = ventas
+        .map(
+          (v) => `
+        <tr data-id="${v.id}">
+          <td>${v.id}</td>
+          <td>${v.nombreCompleto ?? ""}</td>
+          <td>${v.primerProducto ?? "—"}</td>
+          <td>${fmtDate(v.fecha)}</td>
+          <td>${v.esCredito ? "Crédito" : "Contado"}</td>
+          <td style="text-align:right">${v.primerCantidad ?? "—"}</td>
+          <td style="text-align:right">${
+            v.primerPUnit != null ? money(v.primerPUnit) : "—"
+          }</td>
+          <td style="text-align:right">${money(v.total)}</td>
+          <td><button class="btn-detalle">Ver detalle</button></td>
+        </tr>
+      `
+        )
+        .join("");
+
+      tbody.innerHTML =
+        rows ||
+        `<tr><td colspan="9" style="text-align:center">Sin ventas</td></tr>`;
+    } catch (err) {
+      console.error(err);
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center">Error cargando ventas</td></tr>`;
+    }
+  }
+
+  // Ver detalle sólo al hacer clic (si querés mantenerlo)
+  tbody.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".btn-detalle");
+    if (!btn) return;
+    const tr = btn.closest("tr");
+    const id = tr?.dataset.id;
+    if (!id) return;
+
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains("venta-detalle")) {
+      next.remove(); // toggle
+      return;
+    }
+
+    try {
+      const det = await getJSON(`${API}/ventas/${id}/detalle`);
+
+      const money = (v) =>
+        Number(v ?? 0).toLocaleString("es-AR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      const fmtDate = (d) =>
+        d ? new Date(d).toLocaleDateString("es-AR") : "—";
+
+      const itemsRows =
+        (det.items || [])
+          .map(
+            (it) => `
+        <tr>
+          <td>${it.producto ?? `#${it.productoId}`}</td>
+          <td style="text-align:right">${it.cantidad}</td>
+          <td style="text-align:right">${money(it.pUnit)}</td>
+          <td style="text-align:right">${money(it.subTotal)}</td>
+        </tr>`
+          )
+          .join("") ||
+        `<tr><td colspan="4" style="text-align:center">-</td></tr>`;
+
+      const cuotasRows =
+        (det.cuotas || [])
+          .map(
+            (c) => `
+        <tr>
+          <td>#${c.numero}</td>
+          <td>${fmtDate(c.venceEl)}</td>
+          <td style="text-align:right">${money(c.importe)}</td>
+          <td>${c.pagada ? "Sí" : "No"}</td>
+        </tr>`
+          )
+          .join("") ||
+        `<tr><td colspan="4" style="text-align:center">-</td></tr>`;
+
+      const detalle = document.createElement("tr");
+      detalle.className = "venta-detalle";
+      detalle.innerHTML = `
+        <td colspan="9">
+          <div class="grid cols-2 gap">
+            <div>
+              <h4>Items</h4>
+              <table class="table small">
+                <thead><tr><th>Producto</th><th>Cant.</th><th>P.Unit</th><th>Subtotal</th></tr></thead>
+                <tbody>${itemsRows}</tbody>
+              </table>
+            </div>
+            <div>
+              <h4>Cuotas</h4>
+              <table class="table small">
+                <thead><tr><th>#</th><th>Vence</th><th>Importe</th><th>Pagada</th></tr></thead>
+                <tbody>${cuotasRows}</tbody>
+              </table>
+            </div>
+          </div>
+        </td>`;
+      tr.after(detalle);
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo cargar el detalle de la venta");
+    }
+  });
+
+  inputBuscar?.addEventListener("input", () => cargarVentas());
+  cargarVentas();
 });

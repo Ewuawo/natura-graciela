@@ -1,226 +1,201 @@
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", () => {
+  const API = "http://localhost:3000";
 
-//Agregar clientes
-if (document.getElementById("form-cliente")) {
-    document.getElementById("form-cliente").addEventListener("submit", function(event) {
-        event.preventDefault();
-         
-        const nombre = document.getElementById("nombre").value.trim();
-        const apellido = document.getElementById("apellido").value.trim();
-        const telefono = document.getElementById("telefono").value.trim();
-        const direccion = document.getElementById("direccion").value.trim();
-           
-        
-        if (!nombre || !apellido || !telefono || !direccion) {
-            alert("Por favor, complete todos los campos correctamente.");
-            return;
-        }
+  // ============ UTILIDADES ============
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const qsp = new URLSearchParams(location.search);
 
-        const nuevoCliente = { nombre, apellido, telefono, direccion };
-
-        let listaClientes = JSON.parse(localStorage.getItem("listaClientes"));
-        if (!Array.isArray(listaClientes)) listaClientes = [];
-        listaClientes.push(nuevoCliente);
-        localStorage.setItem("listaClientes", JSON.stringify(listaClientes));
-
-            alert("Cliente agregado exitosamente.");
-            this.reset(); // Resetea el formulario
-            document.getElementById("form-cliente").reset();
-            location.href = "clientes.html"; // Redirige a la página de clientes
-       
-        
+  const request = async (url, opts = {}) => {
+    const r = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
+      ...opts,
     });
-}
-//Tabla Clintes
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.status === 204 ? null : r.json();
+  };
 
-if (document.getElementById("tabla-clientes")) {
-    const listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
-    const tablaClientes = document.getElementById("tabla-clientes");
-
-    listaClientes.forEach((cliente, index) => {
-        const fila = document.createElement("tr");
-        fila.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${cliente.nombre}</td>
-            <td>${cliente.apellido}</td>
-            <td>${cliente.telefono}</td>
-            <td>${cliente.direccion}</td>
-            <td>
-                <button class="editarCliente">Editar</button>
-                <button class="boton-eliminar">Eliminar</button>
-                <button class="boton-ver">Ver</button>
-            </td>
-        `;
-        tablaClientes.appendChild(fila);
-    });
-
-}
-
-//Eliminar clientes
-if (document.querySelectorAll(".boton-eliminar").length > 0) {
-    document.querySelectorAll(".boton-eliminar").forEach((boton, index) => {
-        boton.addEventListener("click", function() {
-            const listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
-            if (confirm("¿Estás seguro de que deseas eliminar este cliente?")) {
-            listaClientes.splice(index, 1);
-            localStorage.setItem("listaClientes", JSON.stringify(listaClientes));
-            location.reload(); // Recargar la página para reflejar los cambios
-            }
-        });
-    });
-}
-
-//Editar clientes
- if (document.querySelectorAll(".editarCliente").length > 0) {
-    document.querySelectorAll(".editarCliente").forEach((boton,index) => {
-        boton.addEventListener("click", function() {
-            const listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
-            const cliente = listaClientes[index];
-
-            localStorage.setItem("clienteEditar", JSON.stringify(cliente));
-            localStorage.setItem("indiceEditar", index);
-
-            location.href = "verEditarClientes.html";
-        });
-    }); 
-}
-
-//Ver cliente
-if (document.querySelectorAll(".boton-ver").length > 0) {
-    document.querySelectorAll(".boton-ver").forEach((boton, index) => {
-        boton.addEventListener("click", function() {
-            const listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
-            const cliente = listaClientes[index];
-
-            localStorage.setItem("clienteVer", JSON.stringify(cliente));
-            localStorage.setItem("indiceVer", index);
-
-            location.href = "verCliente.html";
-        })
-    })
-}
-
-
-
-
-
-
-  if (document.getElementById("eCliente")) {
-    const cliente = JSON.parse(localStorage.getItem("clienteEditar"));
-    if (cliente) {
-        document.getElementById("nombre").value = cliente.nombre;
-        document.getElementById("apellido").value = cliente.apellido;
-        document.getElementById("telefono").value = cliente.telefono;
-        document.getElementById("direccion").value = cliente.direccion;
-      
-               
-        }
- }
-
-
-if (document.getElementById("eCliente")) {
-    document.getElementById("eCliente").addEventListener("submit", function(event) {
-        event.preventDefault();
-
-        const nombre = document.getElementById("nombre").value.trim();
-        const apellido = document.getElementById("apellido").value.trim();
-        const telefono = document.getElementById("telefono").value.trim();
-        const direccion = document.getElementById("direccion").value.trim();
-
-        if (!nombre || !apellido || !telefono || !direccion) {
-            alert("Por favor, complete todos los campos correctamente.");
-            return;
-        }
-
-        const indiceEditar = localStorage.getItem("indiceEditar");
-        let listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
-        
-        listaClientes[indiceEditar] = { nombre, apellido, telefono, direccion };
-        localStorage.setItem("listaClientes", JSON.stringify(listaClientes));
-
-        alert("Cliente editado exitosamente.");
-        location.href = "clientes.html"; // Redirige a la página de clientes
-    });
-
-}
-
-if (document.getElementById("eCliente")) {
-    document.getElementById("eCliente").addEventListener("reset", function(event) {
-        event.preventDefault();
-        location.href = "clientes.html"; // Redirige a la página de clientes
-    });
-}
-
-
-function activarEventosBotones() {
-    document.querySelectorAll(".editarCliente").forEach((boton,index) => {
-        boton.addEventListener("click", function() {
-            const listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
-            const cliente = listaClientes[index];
-            localStorage.setItem("clienteEditar", JSON.stringify(cliente));
-            localStorage.setItem("indiceEditar", index);
-            location.href = "verEditarClientes.html";
-        });
-    });
-    // lo mismo para eliminar y ver si querés
-}
-if (document.getElementById("buscar")) {
-    document.getElementById("buscar").addEventListener("input", function(){
-        const filtro = this.value.toLowerCase();
-        const listaClientes = JSON.parse(localStorage.getItem("listaClientes")) || [];
-        const tabla = document.getElementById("tabla-clientes");
-        tabla.innerHTML = "";
-
-        listaClientes
-        .filter(cliente =>
-            cliente.nombre.toLowerCase().includes(filtro) ||
-            cliente.apellido.toLowerCase().includes(filtro)
+  // ============ LISTAR (clientes.html) ============
+  const $tabla = $("#tabla-clientes");
+  const $buscar = $("#buscar");
+  if ($tabla) {
+    const render = (lista) => {
+      $tabla.innerHTML = lista
+        .map(
+          (c) => `
+        <tr data-id="${c.id}">
+          <td>${c.id}</td>
+          <td>${c.nombre ?? ""}</td>
+          <td>${c.apellido ?? ""}</td>
+          <td>${c.telefono ?? ""}</td>
+          <td>${c.direccion ?? ""}</td>
+          <td>
+            <button class="btn-ver">Ver</button>
+            <button class="btn-editar">Editar</button>
+            <button class="btn-eliminar">Eliminar</button>
+          </td>
+        </tr>`
         )
-        .forEach((cliente, index) => {
-            const fila = document.createElement("tr");
-            fila.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${cliente.nombre}</td>
-                <td>${cliente.apellido}</td>
-                <td>${cliente.telefono}</td>
-                <td>${cliente.direccion}</td>
-                <td>
-                    <button class="editarCliente">Editar</button>
-                    <button class="boton-eliminar">Eliminar</button>
-                    <button class="boton-ver">Ver</button>
-                </td>
-            `;
-            tabla.appendChild(fila);
+        .join("");
+    };
+
+    let cache = [];
+    const cargar = async () => {
+      try {
+        cache = await request(`${API}/clientes`);
+        filtrar();
+      } catch (e) {
+        console.error(e);
+        $tabla.innerHTML =
+          '<tr><td colspan="6">Error cargando clientes</td></tr>';
+      }
+    };
+
+    const filtrar = () => {
+      const f = ($buscar.value || "").toLowerCase();
+      render(
+        cache.filter(
+          (c) =>
+            (c.nombre ?? "").toLowerCase().includes(f) ||
+            (c.apellido ?? "").toLowerCase().includes(f) ||
+            (c.nombreCompleto ?? "").toLowerCase().includes(f)
+        )
+      );
+    };
+
+    $buscar?.addEventListener("input", filtrar);
+    $tabla.addEventListener("click", async (e) => {
+      const tr = e.target.closest("tr");
+      if (!tr) return;
+      const id = tr.dataset.id;
+
+      if (e.target.classList.contains("btn-ver")) {
+        location.href = `verCliente.html?id=${id}`;
+      }
+      if (e.target.classList.contains("btn-editar")) {
+        location.href = `verEditarClientes.html?id=${id}`;
+      }
+      if (e.target.classList.contains("btn-eliminar")) {
+        if (!confirm("¿Eliminar este cliente?")) return;
+        try {
+          await request(`${API}/clientes/${id}`, { method: "DELETE" });
+          await cargar();
+        } catch (err) {
+          console.error(err);
+          alert("No se pudo eliminar el cliente");
+        }
+      }
+    });
+
+    cargar();
+  }
+
+  // ============ AGREGAR (agregarCliente.html) ============
+  const $formAdd = $("#form-cliente");
+  if ($formAdd) {
+    $formAdd.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        nombre: $("#nombre").value.trim(),
+        apellido: $("#apellido").value.trim(),
+        telefono: $("#telefono").value.trim(),
+        direccion: $("#direccion").value.trim(),
+      };
+      if (!payload.nombre || !payload.apellido) {
+        return alert("Nombre y apellido son requeridos");
+      }
+      try {
+        await request(`${API}/clientes`, {
+          method: "POST",
+          body: JSON.stringify(payload),
         });
-
-        activarEventosBotones(); // 🔑 volvés a activar los eventos
-        
-        
-    });
-}
-
-
-
-
-const botonCancelar = document.querySelector(".boton-cancelar");
-if (botonCancelar) {
-    botonCancelar.addEventListener("click", function (event) {
-        event.preventDefault();
+        alert("Cliente agregado");
         location.href = "clientes.html";
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo agregar el cliente");
+      }
     });
-}
 
+    $(".boton-cancelar")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      location.href = "clientes.html";
+    });
+  }
 
+  // ============ EDITAR (verEditarClientes.html) ============
+  const $formEdit = $("#eCliente");
+  if ($formEdit) {
+    const id = qsp.get("id");
+    if (!id) {
+      alert("Falta id de cliente");
+      location.href = "clientes.html";
+      return;
+    }
 
+    // precargar
+    (async () => {
+      try {
+        const c = await request(`${API}/clientes/${id}`);
+        $("#nombre").value = c.nombre ?? "";
+        $("#apellido").value = c.apellido ?? "";
+        $("#telefono").value = c.telefono ?? "";
+        $("#direccion").value = c.direccion ?? "";
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo cargar el cliente");
+        location.href = "clientes.html";
+      }
+    })();
 
+    $formEdit.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        nombre: $("#nombre").value.trim(),
+        apellido: $("#apellido").value.trim(),
+        telefono: $("#telefono").value.trim(),
+        direccion: $("#direccion").value.trim(),
+      };
+      try {
+        await request(`${API}/clientes/${id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        alert("Cliente actualizado");
+        location.href = "clientes.html";
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo actualizar el cliente");
+      }
+    });
 
+    $formEdit.addEventListener("reset", (e) => {
+      e.preventDefault();
+      location.href = "clientes.html";
+    });
+  }
 
-
-
-
-
-
-
-
-
+  // ============ VER (verCliente.html) ============
+  // Por ahora sólo muestra el nombre; el historial lo integramos después desde /ventas
+  const $nombreCliente = $("#nombreCliente");
+  if ($nombreCliente) {
+    const id = qsp.get("id");
+    if (!id) {
+      alert("Falta id de cliente");
+      location.href = "clientes.html";
+      return;
+    }
+    (async () => {
+      try {
+        const c = await request(`${API}/clientes/${id}`);
+        $nombreCliente.textContent =
+          c.nombreCompleto || `${c.nombre ?? ""} ${c.apellido ?? ""}`.trim();
+        // TODO: integrar historial real con backend (GET /ventas?clienteId=ID)
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo cargar el cliente");
+        location.href = "clientes.html";
+      }
+    })();
+  }
 });

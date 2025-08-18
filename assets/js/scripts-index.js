@@ -1,77 +1,94 @@
-document.addEventListener("DOMContentLoaded", function(){
+(() => {
+  const API = "http://localhost:3000";
+  const $pVencer = document.getElementById("pVencer");
+  const $cVencer = document.getElementById("cVencer");
 
-//Formatear la fecha dd-mm-aaaa
-function formatearFecha(fecha) {
-    const partes = fecha.split("-");
-    return `${partes[2]}-${partes[1]}-${partes[0]}`;
-}
+  document.addEventListener("DOMContentLoaded", init);
 
-//Buscar productos a vencer
-const productos = JSON.parse(localStorage.getItem("listaProductos")) || [];
-const hoy = new Date();
+  async function init() {
+    try {
+      // primero probamos pings para diagnosticar si hay 404
+      await fetch(`${API}/alertas/__index_ping`).then((r) => {
+        if (!r.ok) throw new Error("index_ping " + r.status);
+      });
+      await fetch(`${API}/alertas/ping`).then((r) => {
+        if (!r.ok) throw new Error("router_ping " + r.status);
+      });
 
-const productosVencer = productos.filter(producto => {
-    const vencimiento = new Date(producto.vencimiento);
-    const diferenciaDias = (vencimiento - hoy) / (1000 * 60 * 60 * 24);
-    return diferenciaDias >= 0 && diferenciaDias <=30;
-});
-
-//listar en la tabla
-const pVencer = document.getElementById("pVencer");
-productosVencer.forEach(producto => {
-    const fila = document.createElement("tr");
-    fila.innerHTML = `
-    <td>${producto.nombre}</td>
-    <td>${producto.detalle}</td>
-    <td>${producto.pVenta.toFixed(2)}</td>
-    <td>${formatearFecha(producto.vencimiento)}</td>
-    <td>${producto.cantidad}</td>
-    `;
-
-    pVencer.appendChild(fila);
-
-})
-
-//Buscar cuotas a vencer
-const ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-const oy = new Date();
-const sieteDias = new Date();
-sieteDias.setDate(oy.getDate() + 7);
-
-const cuotasVencer = [];
-
-ventas.forEach(venta => {
-    if (venta.cuotas) {
-        venta.cuotas.forEach(cuota => {
-            const fVencimiento = new Date(cuota.fechaVencimiento);
-            if (fVencimiento >= oy && fVencimiento <= sieteDias && cuota.monto > 0) {
-                cuotasVencer.push({
-                    cliente: venta.cliente,
-                    cuota: cuota.monto.toFixed(2),
-                    fecha: formatearFecha(cuota.fechaVencimiento),
-                    total: venta.total.toFixed(2)
-                });
-            }
-        });
+      const [prods, cuotas] = await Promise.all([
+        fetchJson(`${API}/alertas/productos?days=30`),
+        fetchJson(`${API}/alertas/cuotas?days=7`),
+      ]);
+      renderProductos(prods);
+      renderCuotas(cuotas);
+    } catch (e) {
+      console.error(e);
+      if ($pVencer)
+        $pVencer.innerHTML = `<tr><td colspan="5">Error cargando productos</td></tr>`;
+      if ($cVencer)
+        $cVencer.innerHTML = `<tr><td colspan="4">Error cargando cuotas</td></tr>`;
     }
-});
+  }
 
+  async function fetchJson(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`Error ${r.status} en ${url}`);
+    return r.json();
+  }
 
-//Listar tabla cuotas a vencer
-const cVencer = document.getElementById("cVencer");
-let contadorCuota = 1;
+  function fmtDate(d) {
+    try {
+      return new Date(d).toLocaleDateString("es-AR");
+    } catch {
+      return d;
+    }
+  }
 
-cuotasVencer.forEach(cuota => {
-    const fila = document.createElement("tr");
-    fila.innerHTML= `
-    <td>${cuota.cliente}</td>
-    <td>Cuota ${contadorCuota++}</td>
-    <td>${cuota.fecha}</td>
-    <td>$${cuota.cuota}</td>
-    
-    `;
-    cVencer.appendChild(fila);
-})
+  function fmtMoney(n) {
+    return Number(n || 0).toLocaleString("es-AR", {
+      style: "currency",
+      currency: "ARS",
+    });
+  }
 
-});
+  function renderProductos(list) {
+    if (!$pVencer) return;
+    if (!list || !list.length) {
+      $pVencer.innerHTML = `<tr><td colspan="5" style="text-align:center">Sin productos por vencer en 30 días</td></tr>`;
+      return;
+    }
+    $pVencer.innerHTML = list
+      .map(
+        (p) => `
+      <tr>
+        <td>${p.nombre}</td>
+        <td>${p.detalle ?? ""}</td>
+        <td style="text-align:right">${fmtMoney(p.pVenta)}</td>
+        <td>${p.fechaVencimiento ? fmtDate(p.fechaVencimiento) : ""}</td>
+        <td style="text-align:right">${p.cantidad}</td>
+      </tr>
+    `
+      )
+      .join("");
+  }
 
+  function renderCuotas(list) {
+    if (!$cVencer) return;
+    if (!list || !list.length) {
+      $cVencer.innerHTML = `<tr><td colspan="4" style="text-align:center">Sin cuotas a vencer en los próximos 7 días</td></tr>`;
+      return;
+    }
+    $cVencer.innerHTML = list
+      .map(
+        (c) => `
+      <tr>
+        <td>${c.nombreCompleto ?? "(s/cliente)"}</td>
+        <td>#${c.nroCuota}</td>
+        <td>${fmtDate(c.venceEl)}</td>
+        <td style="text-align:right">${fmtMoney(c.importe)}</td>
+      </tr>
+    `
+      )
+      .join("");
+  }
+})();

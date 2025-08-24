@@ -4,6 +4,7 @@
    - Carrito con validaciones de IDs/cantidades/precios
    - Cuotas (si medio de pago = crédito)
    - Envío a POST /ventas con payload consistente
+   - 🔄 PARCHE: muestra stock actual del producto y valida cantidad
    ────────────────────────────────────────────────────────────── */
 
 const API = "http://localhost:3000";
@@ -26,11 +27,13 @@ const ui = {
   divFechasCuotas: document.getElementById("fechas-cuotas"),
   divInfoCuotas: document.getElementById("info-cuotas"),
   form: document.getElementById("registrarVenta"),
+  stockLabel: document.getElementById("stockActual"), // NUEVO
 };
 
 let clientes = [];
 let productos = [];
 let carrito = []; // [{productoId, nombre, cantidad, precioUnitario, subtotal}]
+let stockActual = null; // NUEVO: último stock consultado
 
 /* ──────────────────────────────────────────────────────────────
    Utilidades
@@ -48,6 +51,31 @@ const hoyISO = () => {
 
 function alerta(msg) {
   alert(msg);
+}
+
+// NUEVO: consulta al backend y pinta el stock
+async function mostrarStock(productoId) {
+  stockActual = null;
+  if (!ui.stockLabel) return;
+  if (!productoId) {
+    ui.stockLabel.textContent = "";
+    return;
+  }
+  try {
+    const r = await fetch(`${API}/ventas/stock/${productoId}`);
+    const data = await r.json();
+    if (data && data.stock != null) {
+      stockActual = Number(data.stock);
+      ui.stockLabel.textContent = `Stock disponible: ${stockActual}`;
+      ui.stockLabel.style.color = "#666";
+    } else {
+      ui.stockLabel.textContent = "Stock: (no disponible)";
+      ui.stockLabel.style.color = "#a33";
+    }
+  } catch {
+    ui.stockLabel.textContent = "Stock: (error al consultar)";
+    ui.stockLabel.style.color = "#a33";
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -92,12 +120,15 @@ async function cargarCombos() {
         .join("");
 
     ui.inpFecha.value = hoyISO();
+
+    // NUEVO: mostrar stock si ya hay producto seleccionado
+    if (ui.selProducto.value) {
+      mostrarStock(parseInt(ui.selProducto.value, 10));
+    }
   } catch (e) {
-    // si falla, mostramos un aviso «amigable»
     alerta(
       "No pude cargar clientes/productos. Revisá que el backend esté corriendo."
     );
-    // opcional: pegamos una consulta al diag para saber columnas
     try {
       await fetch(`${API}/ventas/_diag`);
     } catch {}
@@ -114,6 +145,7 @@ ui.selProducto.addEventListener("change", () => {
     ui.pDetalle.textContent = "";
     ui.inpPCosto.value = "";
     ui.inpPVenta.value = "";
+    mostrarStock(null); // limpiar stock
     return;
   }
   ui.pDetalle.textContent = prod.detalle ? `Detalle: ${prod.detalle}` : "";
@@ -121,6 +153,9 @@ ui.selProducto.addEventListener("change", () => {
     ui.selProducto.options[ui.selProducto.selectedIndex].dataset.pcosto || "";
   ui.inpPVenta.value =
     ui.selProducto.options[ui.selProducto.selectedIndex].dataset.pventa || "";
+
+  // NUEVO: actualizar stock
+  mostrarStock(idSel);
 });
 
 /* ──────────────────────────────────────────────────────────────
@@ -139,17 +174,20 @@ ui.btnAgregarItem.addEventListener("click", () => {
     return alerta("Cantidad inválida");
   }
 
+  // NUEVO: validar contra stock actual
+  if (stockActual != null && cantidad > stockActual) {
+    return alerta(`No hay stock suficiente. Disponible: ${stockActual}.`);
+  }
+
   const precioUnitario = Number(ui.inpPVenta.value || 0);
   if (!(precioUnitario > 0)) {
     return alerta("Ingresá un precio de venta válido (> 0).");
   }
 
-  // Aseguramos ID de item igual al producto seleccionado
-  // y no mezclamos productos iguales (sumamos cantidades)
   const existente = carrito.find((it) => it.productoId === productoId);
   if (existente) {
     existente.cantidad += cantidad;
-    existente.precioUnitario = precioUnitario; // última referencia
+    existente.precioUnitario = precioUnitario;
     existente.subtotal = existente.cantidad * existente.precioUnitario;
   } else {
     carrito.push({
@@ -161,7 +199,6 @@ ui.btnAgregarItem.addEventListener("click", () => {
     });
   }
 
-  // limpiamos campos rápidos
   ui.inpCantidad.value = "";
   ui.inpPVenta.value = prod.pVenta || ui.inpPVenta.value;
 
@@ -187,7 +224,6 @@ function renderCarrito() {
   });
   ui.lblTotal.textContent = fmtMoney(total);
 
-  // botones quitar
   ui.tbodyItems.querySelectorAll(".btn-del").forEach((b) =>
     b.addEventListener("click", (e) => {
       const i = parseInt(e.currentTarget.dataset.i, 10);
@@ -285,7 +321,6 @@ ui.form.addEventListener("submit", async (e) => {
 
   if (!carrito.length) return alerta("Agregá al menos un ítem a la venta.");
 
-  // Validación fuerte de carrito (IDs/cantidades/precios)
   for (const it of carrito) {
     const prod = productos.find((p) => p.id === it.productoId);
     if (!prod) {
@@ -361,9 +396,12 @@ ui.form.addEventListener("submit", async (e) => {
     }
     const data = await r.json();
     alert(`Venta #${data.ventaId} registrada correctamente.`);
-    // limpiar y/o navegar a ventas
     carrito = [];
     renderCarrito();
+    // NUEVO: refrescar stock si seguimos en la misma página
+    if (ui.selProducto.value) {
+      mostrarStock(parseInt(ui.selProducto.value, 10));
+    }
     window.location.href = "ventas.html";
   } catch (e2) {
     alerta(`Error al registrar la venta\n\n${e2.message}`);

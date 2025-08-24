@@ -1,124 +1,127 @@
+// routes/ventas.js
 const express = require("express");
 const router = express.Router();
 const { poolPromise, sql } = require("../db");
 
-/* ============== helpers ============== */
-function toDateOnly(value) {
-  if (!value) return null;
-  const d = value instanceof Date ? value : new Date(value + "T00:00:00");
+/* ============== utils ============== */
+const NOMBRE_COMPLETO_EXPR =
+  "LTRIM(RTRIM(ISNULL(cl.apellido,'') + ' ' + ISNULL(cl.nombre,'')))";
+
+function toDateOnly(v) {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(v + "T00:00:00");
   if (isNaN(d)) return null;
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
-let ITEMS_TABLE = null; // cache
-
-async function resolveItemsTable(pool) {
-  if (ITEMS_TABLE) return ITEMS_TABLE;
-  const q1 = await pool
+async function hasTable(pool, name) {
+  const r = await pool
     .request()
-    .query(
-      "SELECT IIF(OBJECT_ID('dbo.VentaItems','U') IS NOT NULL, 1, 0) AS ok"
-    );
-  if (q1.recordset[0]?.ok) {
-    ITEMS_TABLE = "dbo.VentaItems";
-    return ITEMS_TABLE;
-  }
-  const q2 = await pool
-    .request()
-    .query(
-      "SELECT IIF(OBJECT_ID('dbo.Ventaltems','U') IS NOT NULL, 1, 0) AS ok"
-    );
-  if (q2.recordset[0]?.ok) {
-    ITEMS_TABLE = "dbo.Ventaltems";
-    return ITEMS_TABLE;
-  }
-  throw new Error(
-    "No se encontró la tabla de items (dbo.VentaItems ni dbo.Ventaltems)."
-  );
+    .input("n", sql.NVarChar(256), name)
+    .query("SELECT IIF(OBJECT_ID(@n,'U') IS NULL,0,1) ok");
+  return r.recordset[0].ok === 1;
 }
 
-async function buildVentaDetalle(pool, ventaId) {
-  const itemsTable = await resolveItemsTable(pool);
+async function hasColumn(pool, tableFullName, col) {
+  const r = await pool
+    .request()
+    .input("t", sql.NVarChar(256), tableFullName)
+    .input("c", sql.NVarChar(128), col)
+    .query(
+      "SELECT COUNT(*) n FROM sys.columns WHERE object_id = OBJECT_ID(@t) AND name = @c"
+    );
+  return r.recordset[0].n > 0;
+}
 
-  // Cabecera
-  const cab = await pool.request().input("ventaId", sql.Int, ventaId).query(`
-      SELECT v.id, v.fecha, v.total, v.esCredito, v.cuotasTotal,
-             v.clienteId, cl.nombreCompleto
-      FROM dbo.Ventas v
-      LEFT JOIN dbo.Clientes cl ON cl.id = v.clienteId
-      WHERE v.id = @ventaId
-    `);
-  if (!cab.recordset.length) return null;
+let ITEMS_TABLE; // cacheada
+async function resolveItemsTable(pool) {
+  if (ITEMS_TABLE !== undefined) return ITEMS_TABLE;
+  if (await hasTable(pool, "dbo.VentaItems"))
+    return (ITEMS_TABLE = "dbo.VentaItems");
+  if (await hasTable(pool, "dbo.Ventaltems"))
+    return (ITEMS_TABLE = "dbo.Ventaltems"); // compat con nombre mal tipeado
+  return (ITEMS_TABLE = null);
+}
 
-  // Items
-  const items = await pool.request().input("ventaId", sql.Int, ventaId).query(`
-      SELECT i.id, i.ventaId, i.productoId, p.nombre AS producto,
-             i.cantidad, i.pUnit, i.subTotal
-      FROM ${itemsTable} i
-      LEFT JOIN dbo.Productos p ON p.id = i.productoId
-      WHERE i.ventaId = @ventaId
-      ORDER BY i.id ASC
-    `);
-
-  // Cuotas
-  const cuotas = await pool.request().input("ventaId", sql.Int, ventaId).query(`
-      SELECT id, ventaId, numero, venceEl, importe, pagada, pagadaEl
-      FROM dbo.Cuotas
-      WHERE ventaId = @ventaId
-      ORDER BY numero ASC
-    `);
-
+async function resolveItemColumns(pool, itemsTable) {
+  const hasPUnit = itemsTable && (await hasColumn(pool, itemsTable, "pUnit"));
+  const hasPUnit2 =
+    itemsTable && (await hasColumn(pool, itemsTable, "precioUnitario"));
+  const hasSub1 = itemsTable && (await hasColumn(pool, itemsTable, "subTotal"));
+  const hasSub2 = itemsTable && (await hasColumn(pool, itemsTable, "subtotal"));
+  const pUnitCol = hasPUnit ? "pUnit" : hasPUnit2 ? "precioUnitario" : null;
+  const subTotalCol = hasSub1 ? "subTotal" : hasSub2 ? "subtotal" : null;
   return {
-    venta: cab.recordset[0],
-    items: items.recordset,
-    cuotas: cuotas.recordset,
+    pUnitCol,
+    subTotalCol,
+    pUnitExpr: pUnitCol ? `i.${pUnitCol}` : "NULL",
+    subTotalExpr: subTotalCol ? `i.${subTotalCol}` : "NULL",
   };
 }
 
-/* ============== endpoints ============== */
+// Detecta nombre de columna de stock en Productos
+async function resolveProductoStockColumn(pool) {
+  const table = "dbo.Productos";
+  const candidatos = [
+    "stock",
+    "cantidad",
+    "existencia",
+    "existencias",
+    "stockActual",
+  ];
+  for (const c of candidatos) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await hasColumn(pool, table, c)) return { table, col: c };
+  }
+  return { table, col: null };
+}
 
-// GET /ventas  (trae además el primer producto/cant/pUnit)
+/* ============== GET /ventas (listado) ============== */
 router.get("/", async (req, res) => {
   try {
-    const clienteId = req.query.clienteId
-      ? parseInt(req.query.clienteId, 10)
-      : null;
-    const desde = toDateOnly(req.query.desde || null);
-    const hasta = toDateOnly(req.query.hasta || null); // inclusive
     const pool = await poolPromise;
     const itemsTable = await resolveItemsTable(pool);
 
+    const prodSub = itemsTable
+      ? `(SELECT TOP 1 p.nombre FROM ${itemsTable} i
+            LEFT JOIN dbo.Productos p ON p.id = i.productoId
+            WHERE i.ventaId = v.id ORDER BY i.id)`
+      : `NULL`;
+    const cantSub = itemsTable
+      ? `(SELECT TOP 1 i.cantidad FROM ${itemsTable} i
+            WHERE i.ventaId = v.id ORDER BY i.id)`
+      : `NULL`;
+
+    const hasPUnit = itemsTable && (await hasColumn(pool, itemsTable, "pUnit"));
+    const hasPU2 =
+      itemsTable && (await hasColumn(pool, itemsTable, "precioUnitario"));
+    const punitSub = itemsTable
+      ? `(SELECT TOP 1 ${
+          hasPUnit ? "i.pUnit" : hasPU2 ? "i.precioUnitario" : "NULL"
+        } FROM ${itemsTable} i WHERE i.ventaId = v.id ORDER BY i.id)`
+      : `NULL`;
+
+    // filtro opcional por cliente
     const rq = pool.request();
-    let where = "1=1";
-    if (clienteId) {
-      where += " AND v.clienteId = @clienteId";
-      rq.input("clienteId", sql.Int, clienteId);
-    }
-    if (desde) {
-      where += " AND v.fecha >= @desde";
-      rq.input("desde", sql.Date, desde);
-    }
-    if (hasta) {
-      const h = new Date(hasta);
-      h.setDate(h.getDate() + 1);
-      where += " AND v.fecha < @hasta";
-      rq.input("hasta", sql.Date, h);
+    let where = "";
+    if (req.query.clienteId) {
+      const cliId = parseInt(req.query.clienteId, 10);
+      if (!Number.isNaN(cliId)) {
+        rq.input("cli", sql.Int, cliId);
+        where = "WHERE v.clienteId = @cli";
+      }
     }
 
     const rs = await rq.query(`
       SELECT v.id, v.fecha, v.total, v.esCredito, v.cuotasTotal,
-             v.clienteId, cl.nombreCompleto,
-             (SELECT TOP 1 p.nombre FROM ${itemsTable} i
-              LEFT JOIN dbo.Productos p ON p.id = i.productoId
-              WHERE i.ventaId = v.id ORDER BY i.id) AS primerProducto,
-             (SELECT TOP 1 i.cantidad FROM ${itemsTable} i
-              WHERE i.ventaId = v.id ORDER BY i.id) AS primerCantidad,
-             (SELECT TOP 1 i.pUnit FROM ${itemsTable} i
-              WHERE i.ventaId = v.id ORDER BY i.id) AS primerPUnit
+             v.clienteId, ${NOMBRE_COMPLETO_EXPR} AS nombreCompleto,
+             ${prodSub}  AS primerProducto,
+             ${cantSub}  AS primerCantidad,
+             ${punitSub} AS primerPUnit
       FROM dbo.Ventas v
       LEFT JOIN dbo.Clientes cl ON cl.id = v.clienteId
-      WHERE ${where}
+      ${where}
       ORDER BY v.fecha DESC, v.id DESC
     `);
 
@@ -129,38 +132,69 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /ventas/:id  (cabecera)
-router.get("/:id", async (req, res) => {
-  try {
-    const ventaId = parseInt(req.params.id, 10);
-    const pool = await poolPromise;
-    const rs = await pool.request().input("ventaId", sql.Int, ventaId).query(`
-        SELECT v.id, v.fecha, v.total, v.esCredito, v.cuotasTotal,
-               v.clienteId, cl.nombreCompleto
-        FROM dbo.Ventas v
-        LEFT JOIN dbo.Clientes cl ON cl.id = v.clienteId
-        WHERE v.id = @ventaId
-      `);
-    if (!rs.recordset.length)
-      return res.status(404).json({ error: "No encontrada" });
-    res.json(rs.recordset[0]);
-  } catch (e) {
-    console.error(
-      "GET /ventas/:id:",
-      e?.originalError?.info?.message || e.message
-    );
-    res.status(500).json({ error: "Error al obtener la venta" });
-  }
-});
-
-// GET /ventas/:id/detalle  (cabecera + items + cuotas)
+/* ============== GET /ventas/:id/detalle ============== */
 router.get("/:id/detalle", async (req, res) => {
   try {
     const ventaId = parseInt(req.params.id, 10);
     const pool = await poolPromise;
-    const det = await buildVentaDetalle(pool, ventaId);
-    if (!det) return res.status(404).json({ error: "No encontrada" });
-    res.json(det);
+    const itemsTable = await resolveItemsTable(pool);
+    const { pUnitExpr, subTotalExpr } = await resolveItemColumns(
+      pool,
+      itemsTable
+    );
+
+    const cab = await pool.request().input("ventaId", sql.Int, ventaId).query(`
+      SELECT v.id, v.fecha, v.total, v.esCredito, v.cuotasTotal,
+             v.clienteId, ${NOMBRE_COMPLETO_EXPR} AS nombreCompleto
+      FROM dbo.Ventas v
+      LEFT JOIN dbo.Clientes cl ON cl.id = v.clienteId
+      WHERE v.id = @ventaId
+    `);
+    if (!cab.recordset.length)
+      return res.status(404).json({ error: "No encontrada" });
+
+    let items = { recordset: [] };
+    if (itemsTable) {
+      items = await pool.request().input("ventaId", sql.Int, ventaId).query(`
+        SELECT i.id, i.productoId, p.nombre AS producto, i.cantidad,
+               ${pUnitExpr} AS precioUnitario, ${subTotalExpr} AS subTotal
+        FROM ${itemsTable} i
+        LEFT JOIN dbo.Productos p ON p.id = i.productoId
+        WHERE i.ventaId = @ventaId
+        ORDER BY i.id
+      `);
+    }
+
+    // cuotas
+    const cuotasRS = await pool.request().input("ventaId", sql.Int, ventaId)
+      .query(`
+      SELECT id, numero AS nro, venceEl AS vencimiento, importe AS monto, pagada, pagadaEl
+      FROM dbo.Cuotas WHERE ventaId = @ventaId ORDER BY numero
+    `);
+    let cuotas = cuotasRS.recordset;
+
+    // pagos por cuota (si existe la tabla)
+    if (await hasTable(pool, "dbo.CuotaPagos")) {
+      const pagosRS = await pool.request().input("ventaId", sql.Int, ventaId)
+        .query(`
+        SELECT p.id, p.cuotaId, p.fecha, p.monto
+        FROM dbo.CuotaPagos p
+        JOIN dbo.Cuotas c ON c.id = p.cuotaId
+        WHERE c.ventaId = @ventaId
+        ORDER BY p.fecha ASC, p.id ASC
+      `);
+      const byCuota = pagosRS.recordset.reduce((acc, row) => {
+        (acc[row.cuotaId] ||= []).push({ fecha: row.fecha, monto: row.monto });
+        return acc;
+      }, {});
+      cuotas = cuotas.map((c) => ({ ...c, pagos: byCuota[c.id] || [] }));
+    }
+
+    res.json({
+      venta: cab.recordset[0],
+      items: items.recordset,
+      cuotas,
+    });
   } catch (e) {
     console.error(
       "GET /ventas/:id/detalle:",
@@ -170,164 +204,157 @@ router.get("/:id/detalle", async (req, res) => {
   }
 });
 
-// POST /ventas  (creación tolerante)
+/* === GET /ventas/stock/:productoId (usado por el formulario de ventas) === */
+router.get("/stock/:productoId", async (req, res) => {
+  try {
+    const productoId = parseInt(req.params.productoId, 10);
+    const pool = await poolPromise;
+    const { table, col } = await resolveProductoStockColumn(pool);
+    if (!col) return res.json({ productoId, stock: null }); // no hay columna de stock
+    const rs = await pool
+      .request()
+      .input("id", sql.Int, productoId)
+      .query(`SELECT ${col} AS stock FROM ${table} WHERE id = @id`);
+    res.json({ productoId, stock: rs.recordset[0]?.stock ?? null });
+  } catch (e) {
+    console.error("GET /ventas/stock/:productoId:", e.message);
+    res.status(500).json({ error: "No se pudo obtener stock" });
+  }
+});
+
+/* ============== POST /ventas (registrar venta) ============== */
 router.post("/", async (req, res) => {
-  const body = req.body || {};
+  const {
+    clienteId,
+    fecha, // 'YYYY-MM-DD'
+    items = [], // [{productoId, cantidad, precioUnitario}]
+    esCredito = false,
+    entregaInicial = 0,
+    interesPct = 0,
+    cuotas = [], // [{nro, monto, vencimiento}]
+  } = req.body || {};
 
-  // Aceptar distintas formas de payload
-  let cabecera = body.cabecera || {
-    clienteId: body.clienteId,
-    fecha: body.fecha,
-    total: body.total,
-    esCredito: body.esCredito,
-    cuotasTotal: body.cuotasTotal,
-  };
-
-  let itemsCand = [
-    body.items,
-    body.detalle,
-    body.detalles,
-    body.carrito,
-    body.itemsVenta,
-    body.venta?.items,
-    body.venta?.detalles,
-  ].find((x) => Array.isArray(x) && x.length);
-  const cuotas = Array.isArray(body.cuotas)
-    ? body.cuotas
-    : Array.isArray(body.venta?.cuotas)
-    ? body.venta.cuotas
-    : [];
-
-  if (!itemsCand || !itemsCand.length) {
-    return res
-      .status(400)
-      .json({ error: "Datos de venta incompletos (sin items)." });
+  if (!clienteId || !fecha || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
-  // Normalizar items
-  const items = itemsCand
-    .map((it) => {
-      const cantidad = Number(it.cantidad ?? it.cant ?? it.qty ?? 0);
-      const pUnit = Number(
-        it.pUnit ??
-          it.precioUnitario ??
-          it.precio ??
-          it.pVenta ??
-          it.pventa ??
-          0
-      );
-      const subTotal = Number(it.subTotal ?? it.subtotal ?? cantidad * pUnit);
-      return {
-        productoId: it.productoId ?? it.idProducto ?? null,
-        nombre: it.producto ?? it.nombre ?? null,
-        cantidad,
-        pUnit,
-        subTotal,
-      };
-    })
-    .filter((it) => it.cantidad > 0 && Number.isFinite(it.pUnit));
+  const tx = new sql.Transaction(await poolPromise);
 
-  if (!items.length) {
-    return res.status(400).json({ error: "Items inválidos." });
-  }
-
-  // Normalizar cabecera
-  cabecera = {
-    clienteId: cabecera?.clienteId ?? null,
-    fecha: toDateOnly(cabecera?.fecha) || new Date(),
-    total: Number(
-      cabecera?.total ?? items.reduce((a, b) => a + (b.subTotal || 0), 0)
-    ),
-    esCredito: !!cabecera?.esCredito,
-    cuotasTotal: Number(
-      cabecera?.cuotasTotal ?? (cabecera?.esCredito ? cuotas.length : 0)
-    ),
-  };
-
-  const pool = await poolPromise;
-  const tx = await pool.transaction();
   try {
     await tx.begin();
+    const t = new sql.Request(tx);
+
+    const fechaSQL = toDateOnly(fecha);
+    if (!fechaSQL) throw new Error("Fecha inválida");
+
+    const totalCalc = items.reduce(
+      (acc, it) =>
+        acc + (Number(it.cantidad) || 0) * (Number(it.precioUnitario) || 0),
+      0
+    );
 
     // cabecera
-    const cab = await tx
-      .request()
-      .input("clienteId", sql.Int, cabecera.clienteId || null)
-      .input("fecha", sql.Date, cabecera.fecha)
-      .input("total", sql.Decimal(10, 2), cabecera.total)
-      .input("esCredito", sql.Bit, cabecera.esCredito ? 1 : 0)
-      .input("cuotasTotal", sql.Int, cabecera.cuotasTotal || 0).query(`
-        INSERT INTO dbo.Ventas (clienteId, fecha, total, esCredito, cuotasTotal, creadoEn)
+    const cab = await t
+      .input("clienteId", sql.Int, clienteId)
+      .input("fecha", sql.Date, fechaSQL)
+      .input("total", sql.Decimal(12, 2), totalCalc)
+      .input("esCredito", sql.Bit, esCredito ? 1 : 0)
+      .input("cuotasTotal", sql.Int, esCredito ? cuotas?.length || null : null)
+      .input("entregaInicial", sql.Decimal(12, 2), entregaInicial || 0)
+      .input("interesPct", sql.Decimal(5, 2), interesPct || 0).query(`
+        INSERT INTO dbo.Ventas
+          (clienteId, fecha, total, esCredito, cuotasTotal, entregaInicial, interesPct, creadoEn)
         OUTPUT INSERTED.id
-        VALUES (@clienteId, @fecha, @total, @esCredito, @cuotasTotal, SYSUTCDATETIME())
+        VALUES
+          (@clienteId, @fecha, @total, @esCredito, @cuotasTotal, @entregaInicial, @interesPct, SYSDATETIME())
       `);
     const ventaId = cab.recordset[0].id;
 
-    // items (acepta productoId o nombre)
+    // items (sin subtotal)
+    const pool = await poolPromise;
     const itemsTable = await resolveItemsTable(pool);
-    for (const it of items) {
-      let pid = it.productoId;
-      if (!pid && it.nombre) {
-        const p = await tx
-          .request()
-          .input("nombre", sql.VarChar(200), it.nombre)
+    if (!itemsTable)
+      throw new Error("No existe la tabla de items (VentaItems).");
+    const { pUnitCol } = await resolveItemColumns(pool, itemsTable);
+
+    const cols = ["ventaId", "productoId", "cantidad"];
+    if (pUnitCol) cols.push(pUnitCol);
+
+    const insItemsSQL = `
+      INSERT INTO ${itemsTable} (${cols.join(",")})
+      VALUES ${items
+        .map(
+          (_it, i) =>
+            `(@ventaId, @p${i}Prod, @p${i}Cant${
+              pUnitCol ? `, @p${i}PUnit` : ""
+            })`
+        )
+        .join(",")}
+    `;
+    const ti = new sql.Request(tx).input("ventaId", sql.Int, ventaId);
+    items.forEach((it, i) => {
+      const cant = Number(it.cantidad) || 0;
+      const pU = Number(it.precioUnitario) || 0;
+      ti.input(`p${i}Prod`, sql.Int, it.productoId);
+      ti.input(`p${i}Cant`, sql.Int, cant);
+      if (pUnitCol) ti.input(`p${i}PUnit`, sql.Decimal(12, 2), pU);
+    });
+    await ti.query(insItemsSQL);
+
+    // descontar stock si existe columna
+    const { table: prodTable, col: stockCol } =
+      await resolveProductoStockColumn(pool);
+    if (stockCol) {
+      for (let i = 0; i < items.length; i += 1) {
+        const it = items[i];
+        const cant = Number(it.cantidad) || 0;
+        if (cant <= 0) continue;
+
+        const q = await new sql.Request(tx)
+          .input("id", sql.Int, it.productoId)
           .query(
-            `SELECT TOP 1 id FROM dbo.Productos WHERE nombre = @nombre AND (activo = 1 OR activo IS NULL) ORDER BY id`
+            `SELECT ${stockCol} AS stock FROM ${prodTable} WITH (UPDLOCK, ROWLOCK) WHERE id = @id`
           );
-        if (!p.recordset.length) {
-          throw new Error(`Producto no encontrado: ${it.nombre}`);
+        const stockActual = Number(q.recordset[0]?.stock ?? 0);
+        if (stockActual < cant) {
+          throw new Error(
+            `Stock insuficiente para producto ${it.productoId} (stock ${stockActual}, requerido ${cant})`
+          );
         }
-        pid = p.recordset[0].id;
+        await new sql.Request(tx)
+          .input("id", sql.Int, it.productoId)
+          .input("cant", sql.Int, cant)
+          .query(
+            `UPDATE ${prodTable} SET ${stockCol} = ${stockCol} - @cant WHERE id = @id`
+          );
       }
-      if (!pid) throw new Error("Falta productoId/nombre en un item.");
-
-      await tx
-        .request()
-        .input("ventaId", sql.Int, ventaId)
-        .input("productoId", sql.Int, pid)
-        .input("cantidad", sql.Int, it.cantidad)
-        .input("pUnit", sql.Decimal(10, 2), it.pUnit)
-        .input("subTotal", sql.Decimal(10, 2), it.subTotal)
-        .query(`INSERT INTO ${itemsTable} (ventaId, productoId, cantidad, pUnit, subTotal)
-                VALUES (@ventaId, @productoId, @cantidad, @pUnit, @subTotal)`);
-
-      // baja de stock
-      await tx
-        .request()
-        .input("productoId", sql.Int, pid)
-        .input("cantidad", sql.Int, it.cantidad)
-        .query(
-          `UPDATE dbo.Productos SET cantidad = cantidad - @cantidad WHERE id=@productoId`
-        );
     }
 
-    // cuotas
-    if (cabecera.esCredito && Array.isArray(cuotas)) {
-      for (const c of cuotas) {
-        await tx
-          .request()
-          .input("ventaId", sql.Int, ventaId)
-          .input("numero", sql.Int, Number(c.numero ?? c.nro ?? 0))
-          .input(
-            "venceEl",
-            sql.Date,
-            toDateOnly(c.venceEl ?? c.fecha ?? c.vencimiento)
-          )
-          .input(
-            "importe",
-            sql.Decimal(10, 2),
-            Number(c.importe ?? c.monto ?? 0)
-          ).query(`
-            INSERT INTO dbo.Cuotas (ventaId, numero, venceEl, importe, pagada)
-            VALUES (@ventaId, @numero, @venceEl, @importe, 0)
-          `);
-      }
+    // cuotas (si aplica)
+    if (
+      esCredito &&
+      Array.isArray(cuotas) &&
+      cuotas.length > 0 &&
+      (await hasTable(pool, "dbo.Cuotas"))
+    ) {
+      const insC = new sql.Request(tx).input("ventaId", sql.Int, ventaId);
+      const insSQL = `
+        INSERT INTO dbo.Cuotas (ventaId, numero, venceEl, importe, pagada)
+        VALUES ${cuotas
+          .map((_c, i) => `(@ventaId, @c${i}Nro, @c${i}Vence, @c${i}Monto, 0)`)
+          .join(",")}
+      `;
+      cuotas.forEach((c, i) => {
+        insC.input(`c${i}Nro`, sql.Int, Number(c.nro) || i + 1);
+        insC.input(`c${i}Monto`, sql.Decimal(12, 2), Number(c.monto) || 0);
+        const vto = toDateOnly(c.vencimiento);
+        insC.input(`c${i}Vence`, sql.Date, vto || toDateOnly(fecha));
+      });
+      await insC.query(insSQL);
     }
 
     await tx.commit();
-
-    const det = await buildVentaDetalle(pool, ventaId);
-    res.status(201).json(det);
+    res.status(201).json({ ventaId });
   } catch (e) {
     try {
       await tx.rollback();
@@ -336,7 +363,161 @@ router.post("/", async (req, res) => {
       "POST /ventas:",
       e?.originalError?.info?.message || e.message
     );
-    res.status(500).json({ error: "Error al registrar la venta" });
+    res
+      .status(500)
+      .json({ error: e.message || "No se pudo registrar la venta" });
+  }
+});
+
+/* ============== POST /ventas/:id/pagos (aplicar pago) ============== */
+// Aplica un pago a las cuotas pendientes (en orden ascendente) y registra cada aplicación.
+// Además, valida que el monto no supere el saldo actual (400 si lo supera).
+router.post("/:id/pagos", async (req, res) => {
+  let tx;
+  try {
+    const ventaId = parseInt(req.params.id, 10);
+    const monto = Number(req.body?.monto);
+    if (!ventaId || !(monto > 0)) {
+      return res.status(400).json({ error: "Datos inválidos" });
+    }
+
+    const pool = await poolPromise;
+    const tieneTablaPagos = await hasTable(pool, "dbo.CuotaPagos");
+
+    tx = new sql.Transaction(await poolPromise);
+    await tx.begin();
+
+    // ❗ Validación server-side: monto <= saldo
+    const saldoQ = await new sql.Request(tx)
+      .input("ventaId", sql.Int, ventaId)
+      .query(
+        `SELECT ISNULL(SUM(importe),0) AS saldo FROM dbo.Cuotas WHERE ventaId=@ventaId`
+      );
+    const saldoSrv = Number(saldoQ.recordset[0]?.saldo || 0);
+    if (monto > saldoSrv) {
+      await tx.rollback();
+      return res.status(400).json({
+        error: `El monto supera el saldo actual ($${saldoSrv.toFixed(2)})`,
+      });
+    }
+
+    // cuotas pendientes con LOCK
+    const sel = await new sql.Request(tx).input("ventaId", sql.Int, ventaId)
+      .query(`
+        SELECT id, numero, importe
+        FROM dbo.Cuotas WITH (UPDLOCK, ROWLOCK)
+        WHERE ventaId = @ventaId AND (pagada = 0 OR importe > 0)
+        ORDER BY numero
+      `);
+
+    let restante = monto;
+
+    for (const c of sel.recordset) {
+      if (restante <= 0) break;
+
+      const aplica = Math.min(restante, Number(c.importe));
+      const nuevoSaldo = Math.max(Number(c.importe) - aplica, 0);
+      const pagada = nuevoSaldo <= 0 ? 1 : 0;
+      const fechaPago = pagada ? new Date() : null;
+
+      // Registrar el pago si existe la tabla
+      if (tieneTablaPagos && aplica > 0) {
+        await new sql.Request(tx)
+          .input("cuotaId", sql.Int, c.id)
+          .input("fecha", sql.DateTime2, new Date())
+          .input("monto", sql.Decimal(12, 2), aplica)
+          .query(
+            `INSERT INTO dbo.CuotaPagos (cuotaId, fecha, monto)
+             VALUES (@cuotaId, @fecha, @monto)`
+          );
+      }
+
+      // Actualizar cuota (saldo y, si corresponde, fecha de cancelación)
+      await new sql.Request(tx)
+        .input("id", sql.Int, c.id)
+        .input("importe", sql.Decimal(12, 2), nuevoSaldo)
+        .input("pagada", sql.Bit, pagada)
+        .input("pagadaEl", sql.DateTime2, fechaPago).query(`
+          UPDATE dbo.Cuotas
+             SET importe = @importe,
+                 pagada  = @pagada,
+                 pagadaEl = @pagadaEl
+           WHERE id = @id
+        `);
+
+      restante -= aplica;
+    }
+
+    // saldo actual
+    const saldoRS = await new sql.Request(tx)
+      .input("ventaId", sql.Int, ventaId)
+      .query(
+        `SELECT ISNULL(SUM(importe),0) AS saldo FROM dbo.Cuotas WHERE ventaId=@ventaId`
+      );
+
+    await tx.commit();
+
+    res.json({
+      ok: true,
+      montoAplicado: monto - Math.max(restante, 0),
+      saldo: Number(saldoRS.recordset[0]?.saldo || 0),
+    });
+  } catch (e) {
+    try {
+      await tx?.rollback();
+    } catch {}
+    console.error("POST /ventas/:id/pagos:", e);
+    res.status(500).json({ error: "Error registrando pago" });
+  }
+});
+
+/* ============== PUT /ventas/:id/cuotas/:nro (editar importe) ============== */
+router.put("/:id/cuotas/:nro", async (req, res) => {
+  try {
+    const ventaId = parseInt(req.params.id, 10);
+    const nro = parseInt(req.params.nro, 10);
+    const importe = Number(req.body?.importe);
+    if (!ventaId || !nro || importe < 0 || Number.isNaN(importe)) {
+      return res.status(400).json({ error: "Datos inválidos" });
+    }
+    const pool = await poolPromise;
+
+    const upd = await pool
+      .request()
+      .input("ventaId", sql.Int, ventaId)
+      .input("nro", sql.Int, nro)
+      .input("importe", sql.Decimal(12, 2), importe)
+      .input("pagada", sql.Bit, importe === 0 ? 1 : 0)
+      .input("pagadaEl", sql.DateTime, importe === 0 ? new Date() : null)
+      .query(
+        `UPDATE dbo.Cuotas
+           SET importe=@importe,
+               pagada=@pagada,
+               pagadaEl=@pagadaEl
+         WHERE ventaId=@ventaId AND numero=@nro;
+         SELECT id, numero AS nro, venceEl AS vencimiento, importe AS monto, pagada, pagadaEl
+         FROM dbo.Cuotas WHERE ventaId=@ventaId AND numero=@nro;`
+      );
+
+    if (!upd.recordset.length)
+      return res.status(404).json({ error: "Cuota no encontrada" });
+
+    // saldo actual
+    const saldoRS = await pool
+      .request()
+      .input("ventaId", sql.Int, ventaId)
+      .query(
+        `SELECT ISNULL(SUM(importe),0) AS saldo FROM dbo.Cuotas WHERE ventaId=@ventaId`
+      );
+
+    res.json({
+      ok: true,
+      cuota: upd.recordset[0],
+      saldo: Number(saldoRS.recordset[0]?.saldo || 0),
+    });
+  } catch (e) {
+    console.error("PUT /ventas/:id/cuotas/:nro:", e.message);
+    res.status(500).json({ error: "Error actualizando cuota" });
   }
 });
 

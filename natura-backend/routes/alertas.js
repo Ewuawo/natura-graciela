@@ -5,6 +5,9 @@ const { poolPromise, sql } = require("../db");
 // ping del router
 router.get("/ping", (_req, res) => res.send("alertas OK"));
 
+// alias para compatibilidad con frontend actual
+router.get("/__index_ping", (_req, res) => res.json({ ok: true }));
+
 /** Productos que vencen en N días (default 30) */
 router.get("/productos", async (req, res) => {
   try {

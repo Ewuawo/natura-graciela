@@ -1,216 +1,222 @@
-// assets/js/scripts-verClientes.js
-document.addEventListener("DOMContentLoaded", function () {
-  const $ = (id) => document.getElementById(id);
-  const pad = (n) => String(n).padStart(2, "0");
-  const hoyISO = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  };
-  const ymd2dmy = (s) => (s ? s.split("-").reverse().join("-") : "");
+// assets/js/scripts-verClientes.js (backend: lectura + pagos + editar cuota + validación excedente + confirm)
+document.addEventListener("DOMContentLoaded", () => {
+  const API = "http://localhost:3000";
 
-  // ===== Cliente seleccionado =====
-  const cliente = JSON.parse(localStorage.getItem("clienteVer"));
-  if (!cliente) {
-    alert("No se encontró el cliente");
+  const $ = (sel) => document.querySelector(sel);
+  const qsp = new URLSearchParams(location.search);
+  const idCliente = qsp.get("id");
+
+  const money = (v) =>
+    Number(v ?? 0).toLocaleString("es-AR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("es-AR") : "—");
+  const getJSON = async (u, opt) => {
+    const r = await fetch(u, opt);
+    if (!r.ok) throw new Error(`${r.status} ${u}`);
+    return r.json();
+  };
+
+  if (!idCliente) {
+    alert("Falta id de cliente");
     location.href = "clientes.html";
     return;
   }
-  const nombreCompleto = `${cliente.nombre} ${cliente.apellido}`;
-  $("nombreCliente").innerText = nombreCompleto;
 
-  // ===== Ventas del cliente + índice global =====
-  const todas = JSON.parse(localStorage.getItem("ventas")) || [];
-  const ventasCliente = []; // { venta, idxGlobal }
-  todas.forEach((v, i) => {
-    if (v.cliente === nombreCompleto)
-      ventasCliente.push({ venta: v, idxGlobal: i });
-  });
+  const el = {
+    nombre: $("#nombreCliente"),
+    tbody: $("#tabla-compras"),
+    panel: $("#detalle-compra"),
+    cuotas: $("#tabla-cuotas"),
+    detProd: $("#detalle-producto"),
+    detMedio: $("#detalle-medio"),
+    detTotal: $("#detalle-total"),
+    pagoBox: $("#seccion-pago"),
+    saldo: $("#saldo-actual"),
+    inpMontoPago: $("#monto-pago"),
+    modal: $("#modal-editar-cuota"),
+    inpMontoCuota: $("#nuevo-monto-cuota"),
+    btnGuardarCuota: $("#btn-guardar-cuota"),
+  };
 
-  // ===== Historial =====
-  const tbodyHist = $("tabla-compras");
-  if (!tbodyHist) {
-    console.error("Falta <tbody id='tabla-compras'>");
-    return;
-  }
-  tbodyHist.innerHTML = "";
+  let ventaActual = null; // { id, ... }
+  let cuotasActuales = []; // array
+  let cuotaSeleccionada = null;
+  let saldoActual = 0; // saldo calculado en el detalle
 
-  ventasCliente.forEach(({ venta, idxGlobal }, pos) => {
-    const tr = document.createElement("tr");
-    const productosTxt =
-      Array.isArray(venta.items) && venta.items.length
-        ? venta.items.map((it) => it.producto).join(", ")
-        : venta.producto || "—"; // compat ventas viejas
-
-    const botonDetalle =
-      venta.medioPago === "credito"
-        ? `<button class="btn-ver-detalle" data-pos="${pos}" data-global="${idxGlobal}">Ver</button>`
-        : "Sin cuotas";
-
-    tr.innerHTML = `
-      <td>${ymd2dmy(venta.fecha)}</td>
-      <td>${productosTxt}</td>
-      <td>${venta.medioPago || ""}</td>
-      <td>$${Number(venta.total || 0).toFixed(2)}</td>
-      <td>${botonDetalle}</td>
-    `;
-    tbodyHist.appendChild(tr);
-  });
-
-  // ===== Estado de selección =====
-  let ventaSel = null;
-  let idxGlobal = -1;
-
-  function renderDetalle() {
-    if (!ventaSel) return;
-
-    const productosTxt =
-      Array.isArray(ventaSel.items) && ventaSel.items.length
-        ? ventaSel.items
-            .map((it) => `${it.producto} (x${it.cantidad})`)
-            .join(", ")
-        : ventaSel.producto || "—";
-
-    $("detalle-compra").style.display = "block";
-    $("detalle-producto").innerText = productosTxt;
-    $("detalle-medio").innerText = ventaSel.medioPago || "";
-    $("detalle-total").innerText = Number(ventaSel.total || 0).toFixed(2);
-
-    $("seccion-pago").style.display = "block";
-    $("saldo-actual").innerText = Number(ventaSel.total || 0).toFixed(2);
-
-    cargarCuotas(ventaSel);
-  }
-
-  function cargarCuotas(venta) {
-    const tb = $("tabla-cuotas");
-    tb.innerHTML = "";
-
-    (venta.cuotas || []).forEach((c) => {
-      // Historial completo (si existe)
-      const pagos = Array.isArray(c.pagos) ? c.pagos : [];
-
-      // Texto/HTML de todos los pagos: una línea por pago
-      const pagosHtml = pagos.length
-        ? `<ul style="margin:0; padding-left:16px;">
-           ${pagos
-             .map(
-               (p) =>
-                 `<li>${ymd2dmy(p.fecha)} — $${Number(p.monto).toFixed(2)}</li>`
-             )
-             .join("")}
-         </ul>`
-        : "";
-
-      // Si la cuota quedó en 0 alguna vez, guardamos la fecha de cancelación
-      const fechaCancelacionTxt = c.fechaPago ? ymd2dmy(c.fechaPago) : "";
-
-      const montoTxt =
-        Number(c.monto) <= 0 ? "Pagada" : `$${Number(c.monto).toFixed(2)}`;
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-      <td>${c.fechaVencimiento || ""}</td>
-      <td>${c.numero}</td>
-      <td>${montoTxt}
-          <button class="btn-editar-cuota" data-numero="${
-            c.numero
-          }">Editar</button>
-      </td>
-      <td>${fechaCancelacionTxt}</td>
-      <td>${pagosHtml}</td>
-    `;
-      tb.appendChild(tr);
-    });
-  }
-
-  // ===== Click en Ver (usa data-pos y data-global) =====
-  document.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("btn-ver-detalle")) return;
-    const pos = parseInt(e.target.getAttribute("data-pos"));
-    const g = parseInt(e.target.getAttribute("data-global"));
-    if (Number.isNaN(pos) || !ventasCliente[pos]) {
-      console.warn("Índice inválido:", pos);
-      return;
+  // 1) Encabezado
+  (async () => {
+    try {
+      const c = await getJSON(`${API}/clientes/${idCliente}`);
+      el.nombre.textContent =
+        c.nombreCompleto || `${c.nombre ?? ""} ${c.apellido ?? ""}`.trim();
+    } catch {
+      alert("No se pudo cargar el cliente");
+      location.href = "clientes.html";
     }
-    ventaSel = ventasCliente[pos].venta;
-    idxGlobal = g;
-    renderDetalle();
+  })();
+
+  // 2) Historial
+  (async () => {
+    el.tbody.innerHTML = `<tr><td colspan="5" style="text-align:center">Cargando...</td></tr>`;
+    try {
+      let ventas = await getJSON(`${API}/ventas?clienteId=${idCliente}`).catch(
+        async () => {
+          const todas = await getJSON(`${API}/ventas`);
+          return todas.filter((v) => String(v.clienteId) === String(idCliente));
+        }
+      );
+      if (!ventas.length) {
+        el.tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;opacity:.7">Sin compras</td></tr>`;
+        return;
+      }
+      el.tbody.innerHTML = ventas
+        .map(
+          (v) => `
+          <tr data-id="${v.id}">
+            <td>${fmtDate(v.fecha)}</td>
+            <td>${v.primerProducto ?? "—"}</td>
+            <td>${v.esCredito ? "Crédito" : "Contado"}</td>
+            <td style="text-align:right">${money(v.total)}</td>
+            <td><button class="btn-detalle">Ver</button></td>
+          </tr>`
+        )
+        .join("");
+    } catch {
+      el.tbody.innerHTML = `<tr><td colspan="5" style="text-align:center">Error cargando compras</td></tr>`;
+    }
+  })();
+
+  // 3) Cargar detalle + pintar UI
+  async function cargarDetalle(ventaId) {
+    const det = await getJSON(`${API}/ventas/${ventaId}/detalle`); // {venta, items, cuotas}
+    ventaActual = det.venta;
+    cuotasActuales = det.cuotas || [];
+
+    const itemsTxt =
+      (det.items || [])
+        .map((it) => `${it.producto ?? `#${it.productoId}`} (x${it.cantidad})`)
+        .join(", ") || "—";
+
+    el.panel.style.display = "block";
+    el.detProd.textContent = itemsTxt;
+    el.detMedio.textContent = ventaActual.esCredito ? "Crédito" : "Contado";
+    el.detTotal.textContent = money(ventaActual.total);
+    el.pagoBox.style.display = ventaActual.esCredito ? "block" : "none";
+
+    // Saldo actual = suma de importes de cuotas
+    saldoActual = cuotasActuales.reduce(
+      (acc, c) => acc + Number(c.monto || 0),
+      0
+    );
+    el.saldo.textContent = money(saldoActual);
+
+    el.cuotas.innerHTML =
+      cuotasActuales
+        .map(
+          (c) => `
+        <tr data-num="${c.nro}">
+          <td>${fmtDate(c.vencimiento)}</td>
+          <td>#${c.nro}</td>
+          <td style="text-align:right">${money(c.monto)}</td>
+          <td>${c.pagada ? fmtDate(c.pagadaEl) : ""}</td>
+          <td>${
+            Array.isArray(c.pagos) && c.pagos.length
+              ? c.pagos
+                  .map((p) => `${fmtDate(p.fecha)} — $${money(p.monto)}`)
+                  .join("<br>")
+              : ""
+          }</td>
+        </tr>`
+        )
+        .join("") ||
+      `<tr><td colspan="5" style="text-align:center">-</td></tr>`;
+  }
+
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".btn-detalle");
+    if (!btn) return;
+    const ventaId = btn.closest("tr")?.dataset.id;
+    if (ventaId) await cargarDetalle(ventaId);
   });
 
-  // ===== Registrar pago: guarda fecha + importe por cuota =====
-  $("btn-registrar-pago").addEventListener("click", () => {
-    if (!ventaSel) return;
-    let monto = parseFloat($("monto-pago").value);
+  // 4) Registrar pago → validación excedente + confirm + backend
+  $("#btn-registrar-pago")?.addEventListener("click", async () => {
+    if (!ventaActual) return;
+    const monto = parseFloat(el.inpMontoPago.value);
     if (isNaN(monto) || monto <= 0) return alert("Monto inválido");
 
-    // 1) Actualizar saldo total
-    let saldo = Number(ventaSel.total || 0) - monto;
-    if (saldo < 0) saldo = 0;
-    ventaSel.total = saldo;
-
-    // 2) Aplicar a cuotas y registrar pagos
-    const hoy = hoyISO();
-    (ventaSel.cuotas || []).forEach((c) => {
-      if (monto > 0 && Number(c.monto) > 0) {
-        const aplica = Math.min(monto, Number(c.monto));
-        // historial de pagos por cuota
-        if (!Array.isArray(c.pagos)) c.pagos = [];
-        c.pagos.push({ fecha: hoy, monto: aplica });
-
-        c.monto = Number(c.monto) - aplica; // descuenta
-        monto -= aplica;
-
-        if (Number(c.monto) === 0) {
-          c.fechaPago = c.fechaPago || hoy; // marca cancelada
-        }
-      }
-    });
-
-    $("saldo-actual").innerText = saldo.toFixed(2);
-    renderDetalle();
-    alert(`Se registró un pago. Saldo actualizado a $${saldo.toFixed(2)}.`);
-
-    // 3) Persistir por índice global
-    if (idxGlobal >= 0) {
-      const list = JSON.parse(localStorage.getItem("ventas")) || [];
-      list[idxGlobal] = ventaSel;
-      localStorage.setItem("ventas", JSON.stringify(list));
-    }
-  });
-
-  // ===== Editar cuota =====
-  let cuotaSel = null;
-  document.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("btn-editar-cuota")) return;
-    if (!ventaSel) return;
-    const n = parseInt(e.target.getAttribute("data-numero"));
-    cuotaSel = (ventaSel.cuotas || []).find((c) => c.numero === n);
-    if (!cuotaSel) return;
-
-    if (
-      Number(cuotaSel.monto) <= 0 &&
-      !confirm("Esta cuota figura como pagada. ¿Querés editarla?")
-    ) {
+    if (monto > saldoActual) {
+      alert(
+        `El monto ingresado ($${money(monto)}) supera el saldo ($${money(
+          saldoActual
+        )}).`
+      );
       return;
     }
-    $("nuevo-monto-cuota").value = Number(cuotaSel.monto || 0).toFixed(2);
-    $("modal-editar-cuota").style.display = "block";
+
+    if (!confirm(`¿Confirmás registrar un pago por $${money(monto)}?`)) return;
+
+    try {
+      const r = await fetch(`${API}/ventas/${ventaActual.id}/pagos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ monto }),
+      });
+
+      if (!r.ok) {
+        // intento leer mensaje del servidor si vino 400
+        let msg = `Error ${r.status}`;
+        try {
+          const j = await r.json();
+          if (j?.error) msg = j.error;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      await cargarDetalle(ventaActual.id); // refrescar
+      el.inpMontoPago.value = "";
+      alert("Pago registrado.");
+    } catch (e) {
+      console.error(e);
+      alert(`No se pudo registrar el pago: ${e.message}`);
+    }
   });
 
-  $("btn-guardar-cuota").addEventListener("click", () => {
-    const nuevo = parseFloat($("nuevo-monto-cuota").value);
-    if (isNaN(nuevo) || nuevo < 0) return alert("Monto invalido");
-    if (cuotaSel) {
-      cuotaSel.monto = nuevo;
-      if (nuevo > 0) delete cuotaSel.fechaPago; // reabierta → sin fechaPago
-      // Nota: mantenemos el historial c.pagos tal como está
+  // 5) Editar cuota → abrir modal y guardar
+  document.addEventListener("click", (e) => {
+    const row = e.target.closest("#tabla-cuotas tr");
+    if (!row || !ventaActual) return;
+    const n = parseInt(row.dataset.num, 10);
+    const c = cuotasActuales.find((x) => x.nro === n);
+    if (!c) return;
+    cuotaSeleccionada = c;
+    el.inpMontoCuota.value = Number(c.monto || 0).toFixed(2);
+    el.modal.style.display = "block";
+  });
+
+  el.btnGuardarCuota?.addEventListener("click", async () => {
+    const nuevo = parseFloat(el.inpMontoCuota.value);
+    if (isNaN(nuevo) || nuevo < 0) return alert("Monto inválido");
+    if (!ventaActual || !cuotaSeleccionada) return;
+
+    try {
+      const r = await fetch(
+        `${API}/ventas/${ventaActual.id}/cuotas/${cuotaSeleccionada.nro}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ importe: nuevo }),
+        }
+      );
+      if (!r.ok) throw new Error(`${r.status}`);
+      el.modal.style.display = "none";
+      await cargarDetalle(ventaActual.id); // refresco
+      alert("Cuota actualizada");
+    } catch (e) {
+      console.error(e);
+      alert("No se pudo actualizar la cuota");
     }
-    if (idxGlobal >= 0) {
-      const list = JSON.parse(localStorage.getItem("ventas")) || [];
-      list[idxGlobal] = ventaSel;
-      localStorage.setItem("ventas", JSON.stringify(list));
-    }
-    renderDetalle();
-    $("modal-editar-cuota").style.display = "none";
   });
 });

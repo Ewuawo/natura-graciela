@@ -2,11 +2,16 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 // Usamos el pool centralizado de ./db
 const { sql, poolPromise } = require("./db");
 
 const app = express();
+
+// 👉 Servir todos los archivos estáticos (html, css, js, imágenes)
+app.use(express.static(path.join(__dirname, "..")));
+
 app.use(cors());
 app.use(express.json());
 

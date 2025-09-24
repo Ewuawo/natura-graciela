@@ -1,39 +1,46 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="assets/css/style.css">
-      <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins&display=swap"
+      rel="stylesheet"
+    />
 
     <title>Productos</title>
-</head>
-<body>
-  <div class="container">
-    <aside class="sidebar">
-      <h2>Natura Graciela</h2>
-      <nav>
-        <ul>
-          <li><a href="index.html">Home</a></li>
-          <li><a href="productos.html">Productos</a></li>
-          <li><a href="clientes.html">Clientes</a></li>
-          <li><a href="ventas.html">Ventas</a></li>
-          <li><a href="agregarCliente.html">Agregar Cliente</a></li>
-          <li><a href="agregarProducto.html">Agregar Producto</a></li>
-          <li><a href="registrarVentas.html">Registrar Venta</a></li>
-        </ul>
-      </nav>
-    </aside>
-    <main class="main-content">
-   
-    <div class="titulo-formulario">
-        <h1>Productos</h1>
-    </div>
-    <section class="product-list">
-       <input class="buscador" type="text" id="buscar" placeholder="Buscar por Producto">
-    <table>
-        <thead>
-            <tr>
+  </head>
+  <body>
+    <div class="container">
+      <aside class="sidebar">
+        <h2>Natura Graciela</h2>
+        <nav>
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="productos.html">Productos</a></li>
+            <li><a href="clientes.html">Clientes</a></li>
+            <li><a href="ventas.html">Ventas</a></li>
+            <li><a href="agregarCliente.html">Agregar Cliente</a></li>
+            <li><a href="agregarProducto.html">Agregar Producto</a></li>
+            <li><a href="registrarVentas.html">Registrar Venta</a></li>
+          </ul>
+        </nav>
+      </aside>
+      <main class="main-content">
+        <div class="titulo-formulario">
+          <h1>Productos</h1>
+        </div>
+        <section class="product-list">
+          <input
+            class="buscador"
+            type="text"
+            id="buscar"
+            placeholder="Buscar por Producto"
+          />
+          <table>
+            <thead>
+              <tr>
                 <th>ID</th>
                 <th>Nombre</th>
                 <th>Detalle</th>
@@ -42,23 +49,20 @@
                 <th>Vencimiento</th>
                 <th>Cantidad</th>
                 <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody id="tabla-productos">
-            <!-- Aquí se agregarán los productos dinámicamente -->
-       
-        </tbody>
-    </table>
-    <div class="botones">
-    <button type="button" class="boton-agregar" onclick="location.href='agregarProducto.html'">Agregar Producto</button>
-</div>
-  </section>
-    </main>
-  </div>
+              </tr>
+            </thead>
+            <tbody id="tabla-productos">
+              <!-- Aquí se agregarán los productos dinámicamente -->
+            </tbody>
+          </table>
+          <a href="agregarProducto.html" class="boton-flotante">+</a>
+        </section>
+      </main>
+    </div>
     <footer>
-        <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
+      <p>&copy; 2025 Natura Graciela. Desarrollado por Eduardo Balbastro.</p>
     </footer>
-    
-      <script src="assets/js/scripts-producto.js"></script>
-</body>
+
+    <script src="assets/js/scripts-producto.js"></script>
+  </body>
 </html>

@@ -93,7 +93,9 @@ document.addEventListener("DOMContentLoaded", () => {
         <tr>
           <td>${it.producto ?? `#${it.productoId}`}</td>
           <td style="text-align:right">${it.cantidad}</td>
-          <td style="text-align:right">${money(it.pUnit)}</td>
+          <td style="text-align:right">${money(
+            money(it.pUnit ?? it.precioUnitario)
+          )}</td>
           <td style="text-align:right">${money(it.subTotal)}</td>
         </tr>`
           )
@@ -102,15 +104,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const cuotasRows =
         (det.cuotas || [])
-          .map(
-            (c) => `
+          .map((c) => {
+            const numero = c.numero ?? c.nro;
+            const venceEl = c.venceEl ?? c.vencimiento;
+            const importe = c.importe ?? c.monto;
+            return `
         <tr>
-          <td>#${c.numero}</td>
-          <td>${fmtDate(c.venceEl)}</td>
-          <td style="text-align:right">${money(c.importe)}</td>
+          <td>#${numero}</td>
+          <td>${fmtDate(venceEl)}</td>
+          <td style="text-align:right">${money(importe)}</td>
           <td>${c.pagada ? "Sí" : "No"}</td>
-        </tr>`
-          )
+        </tr>`;
+          })
           .join("") ||
         `<tr><td colspan="4" style="text-align:center">-</td></tr>`;
 

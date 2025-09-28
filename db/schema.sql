@@ -1,0 +1,292 @@
+USE [master]
+GO
+/****** Object:  Database [NaturaGraciela]    Script Date: 28/9/2025 19:19:59 ******/
+CREATE DATABASE [NaturaGraciela]
+ CONTAINMENT = NONE
+ ON  PRIMARY 
+( NAME = N'NaturaGraciela', FILENAME = N'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\NaturaGraciela.mdf' , SIZE = 8192KB , MAXSIZE = UNLIMITED, FILEGROWTH = 65536KB )
+ LOG ON 
+( NAME = N'NaturaGraciela_log', FILENAME = N'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\NaturaGraciela_log.ldf' , SIZE = 8192KB , MAXSIZE = 2048GB , FILEGROWTH = 65536KB )
+ WITH CATALOG_COLLATION = DATABASE_DEFAULT, LEDGER = OFF
+GO
+ALTER DATABASE [NaturaGraciela] SET COMPATIBILITY_LEVEL = 160
+GO
+IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
+begin
+EXEC [NaturaGraciela].[dbo].[sp_fulltext_database] @action = 'enable'
+end
+GO
+ALTER DATABASE [NaturaGraciela] SET ANSI_NULL_DEFAULT OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET ANSI_NULLS OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET ANSI_PADDING OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET ANSI_WARNINGS OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET ARITHABORT OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET AUTO_CLOSE ON 
+GO
+ALTER DATABASE [NaturaGraciela] SET AUTO_SHRINK OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET AUTO_UPDATE_STATISTICS ON 
+GO
+ALTER DATABASE [NaturaGraciela] SET CURSOR_CLOSE_ON_COMMIT OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET CURSOR_DEFAULT  GLOBAL 
+GO
+ALTER DATABASE [NaturaGraciela] SET CONCAT_NULL_YIELDS_NULL OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET NUMERIC_ROUNDABORT OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET QUOTED_IDENTIFIER OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET RECURSIVE_TRIGGERS OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET  ENABLE_BROKER 
+GO
+ALTER DATABASE [NaturaGraciela] SET AUTO_UPDATE_STATISTICS_ASYNC OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET DATE_CORRELATION_OPTIMIZATION OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET TRUSTWORTHY OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET ALLOW_SNAPSHOT_ISOLATION OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET PARAMETERIZATION SIMPLE 
+GO
+ALTER DATABASE [NaturaGraciela] SET READ_COMMITTED_SNAPSHOT OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET HONOR_BROKER_PRIORITY OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET RECOVERY SIMPLE 
+GO
+ALTER DATABASE [NaturaGraciela] SET  MULTI_USER 
+GO
+ALTER DATABASE [NaturaGraciela] SET PAGE_VERIFY CHECKSUM  
+GO
+ALTER DATABASE [NaturaGraciela] SET DB_CHAINING OFF 
+GO
+ALTER DATABASE [NaturaGraciela] SET FILESTREAM( NON_TRANSACTED_ACCESS = OFF ) 
+GO
+ALTER DATABASE [NaturaGraciela] SET TARGET_RECOVERY_TIME = 60 SECONDS 
+GO
+ALTER DATABASE [NaturaGraciela] SET DELAYED_DURABILITY = DISABLED 
+GO
+ALTER DATABASE [NaturaGraciela] SET ACCELERATED_DATABASE_RECOVERY = OFF  
+GO
+ALTER DATABASE [NaturaGraciela] SET QUERY_STORE = ON
+GO
+ALTER DATABASE [NaturaGraciela] SET QUERY_STORE (OPERATION_MODE = READ_WRITE, CLEANUP_POLICY = (STALE_QUERY_THRESHOLD_DAYS = 30), DATA_FLUSH_INTERVAL_SECONDS = 900, INTERVAL_LENGTH_MINUTES = 60, MAX_STORAGE_SIZE_MB = 1000, QUERY_CAPTURE_MODE = AUTO, SIZE_BASED_CLEANUP_MODE = AUTO, MAX_PLANS_PER_QUERY = 200, WAIT_STATS_CAPTURE_MODE = ON)
+GO
+USE [NaturaGraciela]
+GO
+/****** Object:  Table [dbo].[Clientes]    Script Date: 28/9/2025 19:19:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Clientes](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[nombreCompleto] [nvarchar](200) NOT NULL,
+	[telefono] [nvarchar](50) NULL,
+	[metodoPagoPref] [nvarchar](50) NULL,
+	[creadoEn] [datetime2](7) NOT NULL,
+	[actualizadoEn] [datetime2](7) NULL,
+	[nombre] [nvarchar](100) NULL,
+	[apellido] [nvarchar](100) NULL,
+	[direccion] [nvarchar](200) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[CuotaPagos]    Script Date: 28/9/2025 19:19:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CuotaPagos](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[cuotaId] [int] NOT NULL,
+	[fecha] [datetime2](7) NOT NULL,
+	[monto] [decimal](12, 2) NOT NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Cuotas]    Script Date: 28/9/2025 19:19:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Cuotas](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[ventaId] [int] NOT NULL,
+	[numero] [int] NOT NULL,
+	[venceEl] [date] NOT NULL,
+	[importe] [decimal](12, 2) NOT NULL,
+	[pagada] [bit] NOT NULL,
+	[pagadaEl] [date] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+ CONSTRAINT [UQ_Cuotas] UNIQUE NONCLUSTERED 
+(
+	[ventaId] ASC,
+	[numero] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Productos]    Script Date: 28/9/2025 19:19:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Productos](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[nombre] [varchar](100) NOT NULL,
+	[detalle] [varchar](255) NULL,
+	[pCosto] [decimal](10, 2) NULL,
+	[pVenta] [decimal](10, 2) NULL,
+	[fechaVencimiento] [date] NULL,
+	[cantidad] [int] NULL,
+	[activo] [bit] NOT NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[VentaItems]    Script Date: 28/9/2025 19:19:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[VentaItems](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[ventaId] [int] NOT NULL,
+	[productoId] [int] NOT NULL,
+	[cantidad] [int] NOT NULL,
+	[precioUnitario] [decimal](12, 2) NOT NULL,
+	[subtotal]  AS ([cantidad]*[precioUnitario]) PERSISTED,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Ventas]    Script Date: 28/9/2025 19:19:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Ventas](
+	[id] [int] IDENTITY(1,1) NOT NULL,
+	[clienteId] [int] NOT NULL,
+	[fecha] [date] NOT NULL,
+	[total] [decimal](12, 2) NOT NULL,
+	[esCredito] [bit] NOT NULL,
+	[cuotasTotal] [int] NULL,
+	[creadoEn] [datetime2](7) NOT NULL,
+	[entregaInicial] [decimal](12, 2) NULL,
+	[interesPct] [decimal](5, 2) NULL,
+	[totalFinanciado] [decimal](12, 2) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Cuotas_Vence_Pagada]    Script Date: 28/9/2025 19:19:59 ******/
+CREATE NONCLUSTERED INDEX [IX_Cuotas_Vence_Pagada] ON [dbo].[Cuotas]
+(
+	[pagada] ASC,
+	[venceEl] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Productos_Vencimiento]    Script Date: 28/9/2025 19:19:59 ******/
+CREATE NONCLUSTERED INDEX [IX_Productos_Vencimiento] ON [dbo].[Productos]
+(
+	[fechaVencimiento] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_VentaItems_productoId]    Script Date: 28/9/2025 19:19:59 ******/
+CREATE NONCLUSTERED INDEX [IX_VentaItems_productoId] ON [dbo].[VentaItems]
+(
+	[productoId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_VentaItems_ventaId]    Script Date: 28/9/2025 19:19:59 ******/
+CREATE NONCLUSTERED INDEX [IX_VentaItems_ventaId] ON [dbo].[VentaItems]
+(
+	[ventaId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Ventas_cliente_fecha]    Script Date: 28/9/2025 19:19:59 ******/
+CREATE NONCLUSTERED INDEX [IX_Ventas_cliente_fecha] ON [dbo].[Ventas]
+(
+	[clienteId] ASC,
+	[fecha] DESC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Ventas_clienteId]    Script Date: 28/9/2025 19:19:59 ******/
+CREATE NONCLUSTERED INDEX [IX_Ventas_clienteId] ON [dbo].[Ventas]
+(
+	[clienteId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[Clientes] ADD  DEFAULT (sysutcdatetime()) FOR [creadoEn]
+GO
+ALTER TABLE [dbo].[Clientes] ADD  CONSTRAINT [DF_Clientes_actualizadoEn]  DEFAULT (sysutcdatetime()) FOR [actualizadoEn]
+GO
+ALTER TABLE [dbo].[CuotaPagos] ADD  DEFAULT (sysdatetime()) FOR [fecha]
+GO
+ALTER TABLE [dbo].[Cuotas] ADD  DEFAULT ((0)) FOR [pagada]
+GO
+ALTER TABLE [dbo].[Productos] ADD  CONSTRAINT [DF_Productos_activo]  DEFAULT ((1)) FOR [activo]
+GO
+ALTER TABLE [dbo].[Ventas] ADD  DEFAULT (CONVERT([date],getdate())) FOR [fecha]
+GO
+ALTER TABLE [dbo].[Ventas] ADD  DEFAULT ((0)) FOR [total]
+GO
+ALTER TABLE [dbo].[Ventas] ADD  DEFAULT ((0)) FOR [esCredito]
+GO
+ALTER TABLE [dbo].[Ventas] ADD  DEFAULT (sysutcdatetime()) FOR [creadoEn]
+GO
+ALTER TABLE [dbo].[CuotaPagos]  WITH CHECK ADD FOREIGN KEY([cuotaId])
+REFERENCES [dbo].[Cuotas] ([id])
+GO
+ALTER TABLE [dbo].[Cuotas]  WITH CHECK ADD  CONSTRAINT [FK_Cuotas_Ventas] FOREIGN KEY([ventaId])
+REFERENCES [dbo].[Ventas] ([id])
+GO
+ALTER TABLE [dbo].[Cuotas] CHECK CONSTRAINT [FK_Cuotas_Ventas]
+GO
+ALTER TABLE [dbo].[VentaItems]  WITH CHECK ADD  CONSTRAINT [FK_VentaItems_Productos] FOREIGN KEY([productoId])
+REFERENCES [dbo].[Productos] ([id])
+GO
+ALTER TABLE [dbo].[VentaItems] CHECK CONSTRAINT [FK_VentaItems_Productos]
+GO
+ALTER TABLE [dbo].[VentaItems]  WITH CHECK ADD  CONSTRAINT [FK_VentaItems_Ventas] FOREIGN KEY([ventaId])
+REFERENCES [dbo].[Ventas] ([id])
+GO
+ALTER TABLE [dbo].[VentaItems] CHECK CONSTRAINT [FK_VentaItems_Ventas]
+GO
+ALTER TABLE [dbo].[Ventas]  WITH CHECK ADD  CONSTRAINT [FK_Ventas_Clientes] FOREIGN KEY([clienteId])
+REFERENCES [dbo].[Clientes] ([id])
+GO
+ALTER TABLE [dbo].[Ventas] CHECK CONSTRAINT [FK_Ventas_Clientes]
+GO
+ALTER TABLE [dbo].[Cuotas]  WITH CHECK ADD CHECK  (([importe]>=(0)))
+GO
+ALTER TABLE [dbo].[VentaItems]  WITH CHECK ADD CHECK  (([cantidad]>(0)))
+GO
+USE [master]
+GO
+ALTER DATABASE [NaturaGraciela] SET  READ_WRITE 
+GO
